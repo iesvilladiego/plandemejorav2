@@ -136,18 +136,26 @@
             letter-spacing: -0.03em;
         }
         #curso-subtitulo { margin-bottom: 0; color: var(--secondary-color); }
+        /* Fila de chips y botones: una sola línea alineada un poco por
+           debajo del banner del título; envuelve en pantallas estrechas.
+           Sin position:absolute no puede solapar el título en ningún ancho. */
         #auth-status {
-            position: static; transform: none;
-            display: flex; flex-direction: row; flex-wrap: wrap;
+            display: flex; flex-wrap: wrap;
             align-items: center; justify-content: center;
-            gap: 8px; margin-top: 0.75rem;
+            gap: 8px 10px;
+            margin-top: 0.85rem; padding-top: 0.75rem;
+            border-top: 1px solid #eef2f7;
         }
-        @media (min-width: 769px) {
-            header { position: relative; text-align: left; padding: 1rem 1.5rem; }
-            #auth-status {
-                position: absolute; right: 1.5rem; top: 50%; transform: translateY(-50%);
-                flex-direction: column; align-items: flex-end;
-            }
+        /* Chip de versión de la app: la que declara el service worker */
+        #version-chip {
+            display: inline-flex; align-items: center;
+            padding: 4px 12px; border-radius: 999px;
+            background: #f1f5f9; border: 1px solid #e2e8f0;
+            color: var(--secondary-color);
+            font-size: 0.72rem; font-weight: 600;
+            font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+            letter-spacing: 0.02em;
+            white-space: nowrap;
         }
 
         /* ===== Welcome screen ===== */
@@ -354,6 +362,7 @@
         .area-filtro-texto { white-space: nowrap; }
         /* Nota de ámbito sin indicadores visibles por el check */
         .area-sin-propuestas { color: var(--secondary-color); font-style: italic; margin-top: 10px; }
+        .propuesta-card:focus-visible { outline: 2px solid var(--primary-color); outline-offset: 3px; }
         @media (max-width: 576px) {
             .area-cabecera { flex-wrap: wrap; row-gap: 8px; }
             .area-cabecera .area-title { order: 1; }
@@ -916,17 +925,15 @@
         <header class="text-center mb-5">
             <h1 class="display-4 fw-bold text-primary">PLAN DE MEJORA V2026</h1>
             <p class="lead fw-bold fs-4" id="curso-subtitulo">Curso 2026-2027</p>
-            <p class="small text-muted mb-0" id="version-text"></p>
             <a id="tutorial-pdf-link" href="#" download="" class="small text-muted text-decoration-none" style="opacity: 0.55; transition: opacity 0.2s; display: inline-block;" onmouseenter="this.style.opacity='0.85'" onmouseleave="this.style.opacity='0.55'" title="Descargar tutorial en PDF">📄 Tutorial en PDF</a>
-            <div id="auth-status">
-                <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap; justify-content: center;">
-                    <span id="user-info-badge" class="badge bg-success font-monospace px-3 py-2 fw-normal hidden"></span>
-                    <button id="btn-logout" class="btn btn-sm btn-outline-secondary hidden">Cerrar sesión</button>
-                </div>
-                <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap; justify-content: center;">
-                    <button id="btn-guardar-manual" class="btn btn-sm btn-outline-warning hidden" title="Guardar ahora">💾 Guardar</button>
-                    <span id="save-status" class="small text-muted hidden"></span>
-                </div>
+            <!-- Fila de chips y botones, alineada un poco por debajo del
+                 banner del título: sin position:absolute no puede solaparlo -->
+            <div id="auth-status" role="group" aria-label="Sesión y estado de guardado">
+                <span id="user-info-badge" class="badge bg-success font-monospace px-3 py-2 fw-normal hidden"></span>
+                <button id="btn-guardar-manual" class="btn btn-sm btn-outline-warning hidden" title="Guardar ahora">💾 Guardar</button>
+                <span id="save-status" class="small text-muted hidden"></span>
+                <button id="btn-logout" class="btn btn-sm btn-outline-secondary hidden">Cerrar sesión</button>
+                <span id="version-chip" class="hidden" title="Versión de la aplicación (service worker)"></span>
             </div>
         </header>
 
@@ -2403,6 +2410,20 @@
                 if (c === cursoActual) opt.selected = true;
                 sel.appendChild(opt);
             });
+            refrescarBloqueoEliminar();
+        }
+
+        // Estado del botón Eliminar según el curso seleccionado: los cursos
+        // vigentes o vencidos van deshabilitados, con el motivo en #curso-msg.
+        function refrescarBloqueoEliminar() {
+            const sel = document.getElementById('sel-curso');
+            const btn = document.getElementById('btn-eliminar-curso');
+            const msg = document.getElementById('curso-msg');
+            if (!sel || !btn) return;
+            const motivo = motivoBloqueoEliminacion(sel.value);
+            btn.disabled = !!motivo;
+            btn.title = motivo || 'Eliminar curso seleccionado';
+            if (msg) msg.textContent = motivo ? motivo + ' Solo se pueden eliminar cursos futuros.' : '';
         }
 
         function actualizarVisibilidadBtnBorrar() {
@@ -2506,11 +2527,36 @@
             await guardarCursos();
             actualizarSelectCursos();
             document.getElementById('sel-curso').value = newCurso;
+            refrescarBloqueoEliminar();
+        }
+
+        // Curso escolar vigente a partir de hoy: de septiembre a agosto
+        // (hoy en noviembre de 2026 -> vigente 2026-2027).
+        function cursoVigenteHoy() {
+            var hoy = new Date();
+            var inicio = (hoy.getMonth() + 1) >= 9 ? hoy.getFullYear() : hoy.getFullYear() - 1;
+            return inicio + '-' + (inicio + 1);
+        }
+
+        // Un curso solo es eliminable si es futuro: ni vencido (ya terminó)
+        // ni vigente (está en curso). Devuelve el motivo del bloqueo o ''.
+        function motivoBloqueoEliminacion(curso) {
+            var m = /^(\d{4})-(\d{4})$/.exec(curso || '');
+            if (!m) return ''; // formato desconocido: no bloquear por fecha
+            var vigente = cursoVigenteHoy();
+            if (curso === vigente) {
+                return 'El curso ' + curso + ' está vigente y no se puede eliminar.';
+            }
+            if (parseInt(m[2], 10) <= parseInt(vigente.split('-')[0], 10)) {
+                return 'El curso ' + curso + ' está vencido y no se puede eliminar.';
+            }
+            return '';
         }
 
         async function eliminarCurso(curso) {
-            if (curso === '2026-2027') {
-                alert('El curso 2026-2027 no se puede eliminar.');
+            var bloqueo = motivoBloqueoEliminacion(curso);
+            if (bloqueo) {
+                alert(bloqueo);
                 return;
             }
             // Check if there is a later course
@@ -4312,10 +4358,28 @@
         let ambitoAbiertoId = null;
 
         // Alternar un ámbito: abrirlo cierra el que estuviera abierto
-        // (acordeón exclusivo); clic sobre el abierto lo repliega.
+        // (acordeón exclusivo); clic sobre el abierto lo repliega. Al abrir,
+        // el foco pasa al primer indicador del ámbito desplegado.
         function alternarAmbito(areaId) {
             ambitoAbiertoId = (ambitoAbiertoId === areaId) ? null : areaId;
             actualizarVista();
+            if (ambitoAbiertoId === areaId) enfocarPrimerIndicador(areaId);
+        }
+
+        // Poner el foco en el primer indicador visible del ámbito recién
+        // desplegado; si no hay ninguno (todos filtrados), en el check del
+        // propio encabezado. tabindex="-1" puntual: foco programático sin
+        // entrar en el orden de tabulación de la página.
+        function enfocarPrimerIndicador(areaId) {
+            const cabecera = document.querySelector('.area-cabecera[data-area-id="' + areaId + '"]');
+            if (!cabecera) return;
+            const seccion = cabecera.closest('.area-section');
+            if (!seccion) return;
+            let objetivo = seccion.querySelector('.propuesta-card');
+            if (!objetivo) objetivo = seccion.querySelector('.area-filtro input');
+            if (!objetivo) return;
+            objetivo.setAttribute('tabindex', '-1');
+            objetivo.focus({ preventScroll: false });
         }
 
         // Check "Mostrar indicadores sin propuestas" por ámbito: mapa
@@ -5403,18 +5467,22 @@
             });
         }
 
-        // Obtener versión del Service Worker y mostrarla en la app
+        // Chip dinámico de versión: la declarada por el service worker
+        // (var VERSION de sw.js). Si no se puede leer (sin red y sin caché,
+        // o file://), el chip simplemente no se muestra.
         fetch('./sw.js')
-            .then(function(response) { return response.text(); })
+            .then(function(response) { return response.ok ? response.text() : ''; })
             .then(function(text) {
-                var match = text.match(/const\s+CACHE_NAME\s*=\s*['"]plan-mejora-v([\w.-]+)['"]/);
+                var match = text.match(/var\s+VERSION\s*=\s*['"]([^'"]+)['"]/);
                 if (match) {
-                    document.getElementById('version-text').textContent = 'V ' + match[1];
+                    var chip = document.getElementById('version-chip');
+                    if (chip) {
+                        chip.textContent = 'v' + match[1].replace(/^v/, '');
+                        chip.classList.remove('hidden');
+                    }
                 }
             })
-            .catch(function() {
-                document.getElementById('version-text').textContent = '';
-            });
+            .catch(function() { /* sin versión: el chip queda oculto */ });
     </script>
     <!-- PWA: registro del service worker. En file:// queda inerte; servida
          desde el portal, solo actúa dentro de /plandemejorav2/ (su scope). -->
