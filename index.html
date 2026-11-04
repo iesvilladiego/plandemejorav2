@@ -1872,6 +1872,17 @@
         let propuestasBloqueadas = {};          // Bloqueo individual: { propuestaId: true/false }
         let unsubscribeBloqueos = null;         // Listener para documento de bloqueos
 
+        /* ========== UTILIDAD: FECHA LOCAL ========== */
+        // Fecha de hoy en formato aaaa-mm-dd según la hora LOCAL. toISOString()
+        // usa UTC y en España devuelve el día anterior entre las 00:00 y las
+        // 02:00, lo que desfasaba fechas de inclusión y consecución.
+        function hoyISO() {
+            const d = new Date();
+            const mm = String(d.getMonth() + 1).padStart(2, '0');
+            const dd = String(d.getDate()).padStart(2, '0');
+            return d.getFullYear() + '-' + mm + '-' + dd;
+        }
+
         /* ========== UTILIDAD: DEBOUNCE ========== */
         function debounce(fn, delay) {
             let timer = null;
@@ -1882,6 +1893,23 @@
                     timer = null;
                 }, delay);
             };
+        }
+
+        // ¿El perfil activo puede modificar el plan? Solo Admin y FOREVIN.
+        // Cualquier otro rol (incluido uno desconocido) queda en solo lectura:
+        // el permiso se concede por lista blanca, nunca por descarte.
+        function puedeEditar() {
+            return !!currentUser && (currentUser.role === 'Admin' || currentUser.role === 'FOREVIN');
+        }
+
+        // Perfiles antiguos (viewer/user/admin) → actuales. Se aplica al
+        // recuperar la sesión, antes de pintar la interfaz, para que un rol
+        // heredado no deje la vista en solo lectura por error.
+        const ROLES_LEGACY = { viewer: 'Usuario', user: 'FOREVIN', admin: 'Admin' };
+        function normalizarRolSesion() {
+            if (!currentUser || !ROLES_LEGACY[currentUser.role]) return;
+            currentUser.role = ROLES_LEGACY[currentUser.role];
+            sessionStorage.setItem('plan_mejora_user', JSON.stringify(currentUser));
         }
 
         // Funciones helper para saber si el usuario actual está afectado por el bloqueo
@@ -2026,17 +2054,14 @@
             document.getElementById('welcomeScreen').classList.add('hidden');
             // Perfiles antiguos (viewer/user/admin) → actuales (Usuario/FOREVIN/Admin):
             // por si la sesión se inició antes del cambio o el documento aún no está migrado.
-            const rolLegacy = { viewer: 'Usuario', user: 'FOREVIN', admin: 'Admin' };
-            if (rolLegacy[currentUser.role]) {
-                currentUser.role = rolLegacy[currentUser.role];
-                sessionStorage.setItem('plan_mejora_user', JSON.stringify(currentUser));
-            }
+            normalizarRolSesion();
             document.getElementById('user-info-badge').textContent = currentUser.role + ': ' + currentUser.displayName;
             document.getElementById('user-info-badge').classList.remove('hidden');
             refrescarBloqueoEliminar(); // estado inicial del botón Eliminar
             document.getElementById('btn-logout').classList.remove('hidden');
 
-            const esPerfilUsuario = currentUser.role === 'Usuario';
+            const esAdmin = currentUser.role === 'Admin';
+            const esForevin = currentUser.role === 'FOREVIN';
 
             // Actualizar enlace del tutorial segun el perfil del usuario
             const tutorialLink = document.getElementById('tutorial-pdf-link');
@@ -2049,7 +2074,7 @@
             tutorialLink.href = tutorial.url;
             tutorialLink.setAttribute('download', tutorial.nombre);
 
-            if (currentUser.role === 'Admin') {
+            if (esAdmin) {
                 document.getElementById('user-management-section').classList.remove('hidden');
                 document.getElementById('bloqueo-edicion-section').classList.remove('hidden');
                 document.getElementById('btn-anadir-curso').classList.remove('hidden');
@@ -2062,7 +2087,22 @@
                 document.getElementById('btnImportar').classList.remove('hidden');
                 cargarListaUsuarios();
                 renderListaResponsablesAdmin();
-            } else if (esPerfilUsuario) {
+            } else if (esForevin) {
+                // FOREVIN: edición del plan, pero sin las herramientas de
+                // administración. El botón Guardar es exclusivo del Admin
+                // (lo indican los tres tutoriales).
+                document.getElementById('user-management-section').classList.add('hidden');
+                document.getElementById('bloqueo-edicion-section').classList.add('hidden');
+                document.getElementById('btn-anadir-curso').classList.add('hidden');
+                document.getElementById('btn-eliminar-curso').classList.add('hidden');
+                document.getElementById('btn-borrar-propuestas').classList.add('hidden');
+                document.getElementById('btnCopiarPropuestas').classList.add('hidden');
+                document.getElementById('btn-guardar-manual').classList.add('hidden');
+                document.getElementById('nuevaPropuestaSection').classList.remove('hidden');
+                document.getElementById('btnExportar').classList.remove('hidden');
+                document.getElementById('btnImportar').classList.remove('hidden');
+            } else {
+                // Cualquier otro perfil (Usuario o uno desconocido): solo lectura
                 document.getElementById('user-management-section').classList.add('hidden');
                 document.getElementById('bloqueo-edicion-section').classList.add('hidden');
                 document.getElementById('btn-anadir-curso').classList.add('hidden');
@@ -2073,17 +2113,6 @@
                 document.getElementById('nuevaPropuestaSection').classList.add('hidden');
                 document.getElementById('btnExportar').classList.add('hidden');
                 document.getElementById('btnImportar').classList.add('hidden');
-            } else {
-                // FOREVIN: edición del plan, pero sin las herramientas de
-                // administración. El botón Guardar es exclusivo del Admin
-                // (lo indican los tres tutoriales) y aquí faltaba ocultarlo.
-                document.getElementById('bloqueo-edicion-section').classList.add('hidden');
-                document.getElementById('btn-anadir-curso').classList.add('hidden');
-                document.getElementById('btn-eliminar-curso').classList.add('hidden');
-                document.getElementById('btn-borrar-propuestas').classList.add('hidden');
-                document.getElementById('btnCopiarPropuestas').classList.add('hidden');
-                document.getElementById('btn-guardar-manual').classList.add('hidden');
-                document.getElementById('nuevaPropuestaSection').classList.remove('hidden');
             }
         }
 
@@ -2091,6 +2120,14 @@
             const username = document.getElementById('login-username').value.trim();
             const password = document.getElementById('login-password').value;
             const errorEl = document.getElementById('login-error');
+
+            // crypto.subtle solo existe en contextos seguros (HTTPS o localhost):
+            // sin él no se puede calcular el hash de la contraseña
+            if (!window.crypto || !window.crypto.subtle) {
+                errorEl.textContent = 'Para identificarte, abre la aplicación por HTTPS (o en localhost): el navegador bloquea el cifrado de contraseñas en direcciones no seguras.';
+                errorEl.classList.remove('hidden');
+                return;
+            }
 
             if (!username || !password) {
                 errorEl.textContent = 'Introduce usuario y contraseña.';
@@ -2254,7 +2291,7 @@
                         document.getElementById('edit-user-role').value = role;
                         document.getElementById('edit-user-msg').textContent = '';
                         document.getElementById('edit-user-msg').className = 'small fw-bold';
-                        new bootstrap.Modal(document.getElementById('editarUsuarioModal')).show();
+                        bootstrap.Modal.getOrCreateInstance(document.getElementById('editarUsuarioModal')).show();
                     });
                 });
             } catch (e) {
@@ -2363,16 +2400,17 @@
                 if (currentUser && currentUser.username === editedUsername) {
                     currentUser.displayName = displayName;
                     currentUser.role = role;
-                    // Corregido: se elimina la variable no declarada usuarioActual
-                    // La función mostrarApp() ya se encarga de actualizar la interfaz
+                    // La interfaz (paneles y botones) se reajusta al nuevo rol
                     mostrarApp();
+                    // Y las fichas: si deja de editar, desaparecen sus botones
+                    actualizarVista();
                 }
 
                 cargarListaUsuarios();
 
                 // Cerrar modal tras breve pausa para ver el mensaje
                 setTimeout(() => {
-                    bootstrap.Modal.getInstance(document.getElementById('editarUsuarioModal')).hide();
+                    bootstrap.Modal.getOrCreateInstance(document.getElementById('editarUsuarioModal')).hide();
                 }, 800);
             } catch (e) {
                 console.error('Error editando usuario:', e);
@@ -2416,6 +2454,7 @@
                     ambitoAbiertoId = null; // replegar ámbitos al cerrar sesión
                     ambitoMostrarSinPropuestas = {}; // restablecer los checks por ámbito
                     recogerGestion(); // recoger el grupo GESTIÓN al cerrar sesión
+                    limpiarFiltros(); // los filtros vuelven a su estado inicial
                     document.getElementById('user-info-badge').classList.add('hidden');
                     document.getElementById('btn-logout').classList.add('hidden');
                     document.getElementById('user-management-section').classList.add('hidden');
@@ -2450,9 +2489,12 @@
         async function cargarCursos() {
             try {
                 const doc = await db.collection('pdm26_data').doc('cursos').get();
-                if (doc.exists && doc.data().lista) {
+                if (doc.exists && Array.isArray(doc.data().lista) && doc.data().lista.length) {
                     cursosDisponibles = doc.data().lista;
-                    cursoActual = doc.data().seleccionado || cursosDisponibles[0];
+                    const seleccionado = doc.data().seleccionado;
+                    // El curso guardado como activo debe existir en la lista
+                    // (otra sesión pudo eliminarlo)
+                    cursoActual = cursosDisponibles.includes(seleccionado) ? seleccionado : cursosDisponibles[0];
                 }
                 // Ensure at least 2026-2027 exists
                 if (!cursosDisponibles.includes('2026-2027')) {
@@ -2461,6 +2503,8 @@
             } catch(e) {
                 console.log('No se pudo cargar lista de cursos, usando default');
             }
+            // El curso activo debe existir siempre en la lista
+            if (!cursosDisponibles.includes(cursoActual)) cursoActual = cursosDisponibles[0];
         }
 
         // ¿Por qué no se puede eliminar este curso? '' si es futuro; el
@@ -2576,8 +2620,10 @@
             resetAreasData(cursoActual);
             // Update subtitle
             document.getElementById('curso-subtitulo').textContent = 'Curso ' + curso;
-            // Save selected course
-            await guardarCursos();
+            // Fijar el curso seleccionado: solo el Admin cambia el curso activo
+            // de toda la app. Los demás perfiles pueden consultar otro curso sin
+            // cambiárselo al resto de usuarios conectados.
+            if (currentUser && currentUser.role === 'Admin') await guardarCursos();
             // Reload states for new course
             await cargarEstados();
             await cargarBloqueos();
@@ -2594,9 +2640,13 @@
         }
 
         async function añadirCurso() {
+            // Sin lista de cursos (documento ausente o corrupto) se parte del
+            // curso que la app está mostrando
+            if (!cursosDisponibles.length) cursosDisponibles = [cursoActual];
             const lastCurso = cursosDisponibles[cursosDisponibles.length - 1];
-            const parts = lastCurso.split('-');
-            const startYear = parseInt(parts[0]) + 1;
+            const parts = String(lastCurso).split('-');
+            const base = parseInt(parts[0], 10);
+            const startYear = (isNaN(base) ? 2026 : base) + 1;
             const endYear = startYear + 1;
             const newCurso = startYear + '-' + endYear;
             if (cursosDisponibles.includes(newCurso)) {
@@ -2641,9 +2691,12 @@
 
             // Remove from list
             cursosDisponibles = cursosDisponibles.filter(c => c !== curso);
-            // Delete Firestore document for that course
+            // Delete Firestore document for that course (y sus bloqueos, que son
+            // por curso: si no quedarían huérfanos y se aplicarían de nuevo si el
+            // curso volviera a crearse)
             try {
                 await db.collection('pdm26_data').doc(docId).delete();
+                await db.collection('pdm26_data').doc('bloqueos_' + curso.replace('-', '_')).delete();
             } catch(e) {
                 console.error('Error eliminando documento del curso:', e);
             }
@@ -2808,6 +2861,8 @@
         // ============================================================
 
         async function inicializarAplicacion() {
+            // Rol heredado → rol actual antes de pintar nada
+            normalizarRolSesion();
             // Load courses
             await cargarCursos();
             document.getElementById('curso-subtitulo').textContent = 'Curso ' + cursoActual;
@@ -2900,6 +2955,8 @@
         function registrarEventListenersFiltros() {
             document.getElementById('filtroArea').addEventListener('change', function() {
                 filtroArea = this.value;
+                // El proceso elegido puede no pertenecer al ámbito nuevo
+                filtroFactor = '';
                 llenarFiltroFactores();
                 actualizarVista();
             });
@@ -2920,15 +2977,7 @@
             });
 
             document.getElementById('btnLimpiarFiltros').addEventListener('click', function() {
-                document.getElementById('filtroArea').value = '';
-                document.getElementById('filtroFactor').value = '';
-                document.getElementById('filtroResponsable').value = '';
-                document.getElementById('filtroEstado').value = '';
-                filtroArea = '';
-                filtroFactor = '';
-                filtroResponsable = '';
-                filtroEstado = '';
-                llenarFiltroFactores();
+                limpiarFiltros();
                 actualizarVista();
             });
 
@@ -3091,7 +3140,7 @@
                 select.value = '';
             });
             document.getElementById('btn-new-responsable-modal').addEventListener('click', function() {
-                const modal = new bootstrap.Modal(document.getElementById('nuevoResponsableModal'));
+                const modal = bootstrap.Modal.getOrCreateInstance(document.getElementById('nuevoResponsableModal'));
                 modal.show();
                 document.getElementById('btn-guardar-responsable').onclick = guardarNuevoResponsable;
             });
@@ -3146,7 +3195,7 @@
             });
 
             // Set default date for new proposal
-            document.getElementById('np-fecha').value = new Date().toISOString().split('T')[0];
+            document.getElementById('np-fecha').value = hoyISO();
 
             actualizarSelectResponsables();
 
@@ -3244,13 +3293,13 @@
             });
 
             document.getElementById('btn-np-new-resp').addEventListener('click', function() {
-                const modal = new bootstrap.Modal(document.getElementById('nuevoResponsableModal'));
+                const modal = bootstrap.Modal.getOrCreateInstance(document.getElementById('nuevoResponsableModal'));
                 modal.show();
                 // Override save button to also refresh NP selects
                 document.getElementById('btn-guardar-responsable').onclick = function() {
                     guardarNuevoResponsable();
                     actualizarSelectResponsables();
-                    bootstrap.Modal.getInstance(document.getElementById('nuevoResponsableModal')).hide();
+                    bootstrap.Modal.getOrCreateInstance(document.getElementById('nuevoResponsableModal')).hide();
                 };
             });
 
@@ -3425,7 +3474,7 @@
                     memoria: '',
                     indicadores: indicadores,
                     estado: 'no-iniciada',
-                    fechaInclusion: fechaInclusion || new Date().toISOString().split('T')[0],
+                    fechaInclusion: fechaInclusion || hoyISO(),
                     fechaConsecucion: null
                 };
 
@@ -3443,7 +3492,7 @@
                 document.getElementById('np-indicadores-list').innerHTML = '';
                 document.getElementById('np-resps-list').innerHTML = '';
                 document.getElementById('np-resps-list').dataset.resps = JSON.stringify([]);
-                document.getElementById('np-fecha').value = new Date().toISOString().split('T')[0];
+                document.getElementById('np-fecha').value = hoyISO();
 
                 msgEl.textContent = 'Indicador ' + nuevaId + ' creado correctamente.';
                 msgEl.className = 'small fw-bold text-success mb-3';
@@ -3489,6 +3538,7 @@
             // Limpiar intervalo anterior si existe para evitar duplicados
             if (autoSaveInterval) clearInterval(autoSaveInterval);
             autoSaveInterval = setInterval(async function() {
+                if (!puedeEditar()) return;
                 await guardarEstados();
                 actualizarSaveStatus();
             }, 3 * 60 * 1000);
@@ -3571,6 +3621,10 @@
 
         async function guardarEstados() {
             if (!db || !currentUser) return;
+            // El perfil Usuario es de solo lectura: no debe escribir nunca, ni
+            // siquiera desde el auto-guardado. Así un cliente con datos viejos
+            // no puede sobrescribir el trabajo de quien edita.
+            if (!puedeEditar()) return;
             // Instante de inicio de este guardado: cuando se complete, habrá
             // persistido el estado en memoria tal como estaba aquí. La marca
             // de mutación NO se pone aquí: un guardado redundante (debounce
@@ -3630,6 +3684,18 @@
                 setTimeout(() => { guardadoReciente = false; }, 2000);
             } catch (error) {
                 console.error('Error guardando estados en Firestore:', error);
+                // Sin conexión el auto-guardado reintenta cada 3 minutos: no se
+                // interrumpe al usuario con un alert en cada intento; se avisa
+                // en el indicador de estado y se conserva lo editado en memoria.
+                if (!navigator.onLine) {
+                    const statusEl = document.getElementById('save-status');
+                    if (statusEl) {
+                        statusEl.textContent = 'Sin conexión: cambios pendientes';
+                        statusEl.classList.remove('hidden');
+                        statusEl.style.display = 'inline-block';
+                    }
+                    return;
+                }
                 alert('Error al guardar en la base de datos: ' + error.message);
             }
         }
@@ -3819,10 +3885,11 @@
         }
 
         async function recargarEstadosDesdeSnapshot(doc) {
-            if (!doc.exists) return;
-
             try {
-                const datos = doc.data().datos || {};
+                // Un documento inexistente significa curso sin datos (por
+                // ejemplo tras «Borrar todos los indicadores del curso» desde
+                // otra sesión): hay que vaciar la vista, no dejarla obsoleta.
+                const datos = doc.exists ? (doc.data().datos || {}) : {};
 
                 // Resetear areasData base (preservando estructura)
                 resetAreasData(cursoActual);
@@ -4019,6 +4086,11 @@
 
         function llenarFiltroAreas() {
             const selectArea = document.getElementById('filtroArea');
+            if (!selectArea) return;
+            // Si el ámbito filtrado ya no existe, el filtro deja de tener sentido
+            if (filtroArea && !areasData.some(a => String(a.id) === String(filtroArea))) {
+                filtroArea = '';
+            }
             selectArea.innerHTML = '<option value="">Todos los ámbitos</option>';
 
             areasData.forEach(area => {
@@ -4027,6 +4099,10 @@
                 option.textContent = `${area.id}. ${area.nombre}`;
                 selectArea.appendChild(option);
             });
+
+            // Reconstruir las opciones no debe dejar el control en «Todos»
+            // mientras la vista sigue filtrada
+            selectArea.value = filtroArea;
         }
 
         function llenarFiltroFactores() {
@@ -4052,11 +4128,22 @@
                 option.textContent = `${factor.id}. ${factor.nombre.substring(0, 100)}${factor.nombre.length > 100 ? '...' : ''}`;
                 selectFactor.appendChild(option);
             });
+
+            // Si el proceso filtrado no está en la lista (por ejemplo al
+            // cambiar de ámbito) se descarta el filtro, en vez de dejar la
+            // vista vacía sin que el control lo muestre
+            if (filtroFactor && !factores.some(f => String(f.id) === String(filtroFactor))) {
+                filtroFactor = '';
+            }
+            selectFactor.value = filtroFactor;
         }
 
         function llenarFiltroResponsables() {
             const selectResponsable = document.getElementById('filtroResponsable');
             const reportResponsable = document.getElementById('reportResponsable');
+
+            // Guardar lo elegido en el informe antes de reconstruir las opciones
+            const responsableInforme = reportResponsable ? reportResponsable.value : '';
 
             selectResponsable.innerHTML = '<option value="">Todos los responsables</option>';
             reportResponsable.innerHTML = '<option value="">Todos los responsables</option>';
@@ -4074,6 +4161,30 @@
                 option2.textContent = responsable;
                 reportResponsable.appendChild(option2);
             });
+
+            // Restaurar selecciones: el filtro de responsable y el responsable
+            // del informe no deben perderse al reconstruir el listado
+            if (filtroResponsable && !responsablesOrdenados.includes(filtroResponsable)) {
+                filtroResponsable = '';
+            }
+            selectResponsable.value = filtroResponsable;
+            reportResponsable.value = responsablesOrdenados.includes(responsableInforme) ? responsableInforme : '';
+        }
+
+        // Limpiar todos los filtros: variables y controles, en un solo sitio
+        // (lo usan el botón «Limpiar filtros» y el cierre de sesión).
+        function limpiarFiltros() {
+            filtroArea = '';
+            filtroFactor = '';
+            filtroResponsable = '';
+            filtroEstado = '';
+            const sArea = document.getElementById('filtroArea');
+            const sResp = document.getElementById('filtroResponsable');
+            const sEstado = document.getElementById('filtroEstado');
+            if (sArea) sArea.value = '';
+            if (sResp) sResp.value = '';
+            if (sEstado) sEstado.value = '';
+            llenarFiltroFactores();
         }
 
         // Ordernar propuestas numéricamente por ID dentro de cada factor
@@ -4181,7 +4292,7 @@
                 estadoLabelSpan.textContent = 'Estado:';
                 estadoContainer.appendChild(estadoLabelSpan);
 
-                const isViewer = currentUser && currentUser.role === 'Usuario';
+                const isViewer = !puedeEditar();
 
                 estadosInd.forEach(estado => {
                     const estadoDiv = document.createElement('div');
@@ -4253,7 +4364,7 @@
                 input.id = `estado-${propuesta.id}-${estado.valor}`;
                 input.value = estado.valor;
                 input.checked = propuesta.estado === estado.valor;
-                if (currentUser && currentUser.role === 'Usuario') {
+                if (!puedeEditar()) {
                     input.disabled = true;
                 }
 
@@ -4262,7 +4373,7 @@
                         propuesta.estado = this.value;
                         if (this.value === 'conseguida') {
                             if (!propuesta.fechaConsecucion) {
-                                propuesta.fechaConsecucion = new Date().toISOString().split('T')[0];
+                                propuesta.fechaConsecucion = hoyISO();
                             }
                         } else {
                             propuesta.fechaConsecucion = null;
@@ -4329,7 +4440,7 @@
             const btnGroup = document.createElement('div');
             btnGroup.className = 'd-flex gap-1 align-items-center';
 
-            if (!currentUser || currentUser.role !== 'Usuario') {
+            if (puedeEditar()) {
                 const btnEditar = document.createElement('button');
                 btnEditar.className = 'btn btn-sm btn-outline-primary';
                 if (estaBloqueada) {
@@ -4439,8 +4550,13 @@
                 propuestaElement.appendChild(memoriaDiv);
             }
 
-            // Actuaciones (toggle + contenedor)
-            const numAct = (propuesta.indicadores || []).length;
+            // Actuaciones (toggle + contenedor). Con filtro de responsable se
+            // cuenta solo lo que se va a mostrar: el contador del desplegable y
+            // su contenido deben coincidir
+            const actuacionesVisibles = (propuesta.indicadores || []).filter(ind =>
+                !filtroResponsable || normalizarResponsable(ind.responsable).includes(filtroResponsable)
+            );
+            const numAct = actuacionesVisibles.length;
             if (numAct > 0) {
                 const indicadoresToggle = document.createElement('div');
                 indicadoresToggle.className = 'indicadores-toggle';
@@ -4454,7 +4570,7 @@
                 });
                 propuestaElement.appendChild(indicadoresToggle);
 
-                propuestaElement.appendChild(renderIndicadores(propuesta.indicadores, propuesta));
+                propuestaElement.appendChild(renderIndicadores(actuacionesVisibles, propuesta));
             }
 
             // Estado del indicador
@@ -4752,7 +4868,7 @@
 
             // Actualizar el modal y mostrarlo
             document.getElementById('factoresModalBody').innerHTML = modalContent;
-            const modal = new bootstrap.Modal(document.getElementById('factoresModal'));
+            const modal = bootstrap.Modal.getOrCreateInstance(document.getElementById('factoresModal'));
             modal.show();
         }
 
@@ -4791,7 +4907,9 @@
             document.body.appendChild(a);
             a.click();
             document.body.removeChild(a);
-            URL.revokeObjectURL(url);
+            // Revocar con retardo: hacerlo al instante puede cancelar la
+            // descarga en algunos navegadores (Safari)
+            setTimeout(function() { URL.revokeObjectURL(url); }, 1000);
         }
 
         function importarDatos(event) {
@@ -4812,13 +4930,18 @@
                         return;
                     }
 
+                    // Estados admitidos: un valor desconocido en el archivo no
+                    // debe dejar el indicador en un estado que la app no sabe
+                    // representar
+                    const ESTADOS_VALIDOS = ['no-iniciada', 'en-proceso', 'conseguida'];
+
                     // Actualizar los estados y las actuaciones de los indicadores
                     datosImportados.forEach(dato => {
                         areasData.forEach(area => {
                             area.factoresClave.forEach(factor => {
                                 factor.propuestas.forEach(propuesta => {
                                     if (propuesta.id === dato.codigo) {
-                                        propuesta.estado = dato.estado;
+                                        if (ESTADOS_VALIDOS.includes(dato.estado)) propuesta.estado = dato.estado;
                                         if (dato.contenido) propuesta.descripcion = dato.contenido;
                                         if (dato.valorObjetivo !== undefined) propuesta.valorObjetivo = dato.valorObjetivo || '';
                                         if (dato.propuestaMejora !== undefined) propuesta.propuestaMejora = dato.propuestaMejora || '';
@@ -4828,7 +4951,7 @@
                                                 descripcion: ind.descripcion || '',
                                                 temporalizacion: ind.temporalizacion || '',
                                                 responsable: normalizarResponsable(ind.responsable),
-                                                estado: ind.estado || 'no-iniciada',
+                                                estado: ESTADOS_VALIDOS.includes(ind.estado) ? ind.estado : 'no-iniciada',
                                                 logro: ind.logro || '',
                                                 justificacion: ind.justificacion || '',
                                                 dificultades: ind.dificultades || ''
@@ -4842,7 +4965,9 @@
                         });
                     });
 
-                    // Volver a renderizar los indicadores
+                    // Refrescar los selectores (la importación puede traer
+                    // responsables nuevos) y volver a renderizar los indicadores
+                    llenarFiltroResponsables();
                     actualizarVista();
 
                     // Guardar en Firestore después de importar
@@ -4854,6 +4979,11 @@
                 }
             };
             reader.readAsText(file);
+
+            // Si el archivo no se puede leer, avisar en vez de no hacer nada
+            reader.onerror = function() {
+                alert('No se pudo leer el archivo seleccionado.');
+            };
 
             // Limpiar el input de archivo
             event.target.value = '';
@@ -4878,6 +5008,22 @@
 
         const NOMBRES_LOGRO = { 'si': 'Sí', 'no': 'No', 'parcial': 'Parcial' };
 
+        // Imprime líneas ya troceadas controlando el salto de página: un texto
+        // largo puede ocupar más de un folio y no debe salirse del PDF.
+        function pdfImprimirLineas(doc, lineas, x, y, salto) {
+            let i = 0;
+            while (i < lineas.length) {
+                if (y > 270) { doc.addPage(); y = 20; }
+                const disponibles = Math.max(1, Math.floor((275 - y) / salto));
+                const trozo = lineas.slice(i, i + disponibles);
+                doc.text(trozo, x, y);
+                y += trozo.length * salto;
+                i += trozo.length;
+                if (i < lineas.length) { doc.addPage(); y = 20; }
+            }
+            return y;
+        }
+
         // Imprime en el PDF un bloque de actuaciones (opcionalmente solo las de un responsable)
         function pdfImprimirActuaciones(doc, actuaciones, yStart, soloResponsable) {
             let y = yStart;
@@ -4891,17 +5037,18 @@
                 doc.setFontSize(9);
                 doc.setFont(undefined, 'bolditalic');
                 const actLines = doc.splitTextToSize('Actuación ' + (idx + 1) + ': ' + (act.descripcion || ''), 165);
-                doc.text(actLines, 25, y);
-                y += (actLines.length * 4) + 2;
+                y = pdfImprimirLineas(doc, actLines, 25, y, 4) + 2;
 
                 doc.setFontSize(9);
                 doc.setFont(undefined, 'normal');
                 if (act.temporalizacion) {
-                    doc.text('  Temporalización: ' + act.temporalizacion, 25, y); y += 5;
+                    const tLines = doc.splitTextToSize('  Temporalización: ' + act.temporalizacion, 160);
+                    y = pdfImprimirLineas(doc, tLines, 25, y, 5);
                 }
                 const resps = normalizarResponsable(act.responsable);
                 if (resps.length > 0) {
-                    doc.text('  Responsable: ' + resps.join(', '), 25, y); y += 5;
+                    const rLines = doc.splitTextToSize('  Responsable: ' + resps.join(', '), 160);
+                    y = pdfImprimirLineas(doc, rLines, 25, y, 5);
                 }
                 const estadoAct = act.estado || 'no-iniciada';
                 const estadoActTexto = estadoAct === 'no-iniciada' ? 'No iniciada' : estadoAct === 'en-proceso' ? 'En proceso' : 'Conseguida';
@@ -4918,13 +5065,11 @@
                 doc.setFontSize(8);
                 if (act.justificacion) {
                     const jLines = doc.splitTextToSize('Justificación: ' + act.justificacion, 160);
-                    if (y + jLines.length * 4 > 275) { doc.addPage(); y = 20; }
-                    doc.text(jLines, 25, y); y += (jLines.length * 4) + 2;
+                    y = pdfImprimirLineas(doc, jLines, 25, y, 4) + 2;
                 }
                 if (act.dificultades) {
                     const dLines = doc.splitTextToSize('Dificultades: ' + act.dificultades, 160);
-                    if (y + dLines.length * 4 > 275) { doc.addPage(); y = 20; }
-                    doc.text(dLines, 25, y); y += (dLines.length * 4) + 2;
+                    y = pdfImprimirLineas(doc, dLines, 25, y, 4) + 2;
                 }
                 y += 3;
             });
@@ -4988,6 +5133,11 @@
 
             indicadoresPorEstado.sort((a, b) => ordenEstados.indexOf(a.propuesta.estado) - ordenEstados.indexOf(b.propuesta.estado));
 
+            if (indicadoresPorEstado.length === 0) {
+                alert('No hay indicadores en los estados seleccionados.');
+                return;
+            }
+
             let yPosition = 55;
             let ultimoEstadoImpreso = null;
 
@@ -5023,17 +5173,15 @@
 
                 doc.setFontSize(11);
                 doc.setFont(undefined, 'bold');
-                doc.text('Indicador ' + propuesta.id + ' - ' + propuesta.descripcion, 20, yPosition, { maxWidth: 170 });
-                const descripcionHeight = doc.splitTextToSize('Indicador ' + propuesta.id + ' - ' + propuesta.descripcion, 170).length;
-                yPosition += (descripcionHeight * 6) + 2;
+                const tituloLineas = doc.splitTextToSize('Indicador ' + propuesta.id + ' - ' + propuesta.descripcion, 170);
+                yPosition = pdfImprimirLineas(doc, tituloLineas, 20, yPosition, 6) + 2;
 
                 doc.setFontSize(9);
                 doc.setFont(undefined, 'italic');
                 doc.setTextColor(100, 100, 100);
                 const areaFactor = 'Ámbito: ' + item.area + ' > Proceso: ' + item.factor;
                 const areaFactorLines = doc.splitTextToSize(areaFactor, 170);
-                doc.text(areaFactorLines, 20, yPosition);
-                yPosition += (areaFactorLines.length * 4) + 1;
+                yPosition = pdfImprimirLineas(doc, areaFactorLines, 20, yPosition, 4) + 1;
                 doc.setTextColor(0, 0, 0);
 
                 doc.setFont(undefined, 'normal');
@@ -5043,15 +5191,11 @@
                 }
                 if (propuesta.propuestaMejora) {
                     const pmLines = doc.splitTextToSize('Propuesta de mejora: ' + propuesta.propuestaMejora, 170);
-                    if (yPosition + pmLines.length * 4 > 275) { doc.addPage(); yPosition = 20; }
-                    doc.text(pmLines, 20, yPosition);
-                    yPosition += (pmLines.length * 4) + 2;
+                    yPosition = pdfImprimirLineas(doc, pmLines, 20, yPosition, 4) + 2;
                 }
                 if (propuesta.memoria) {
                     const memLines = doc.splitTextToSize('Memoria: ' + propuesta.memoria, 170);
-                    if (yPosition + memLines.length * 4 > 275) { doc.addPage(); yPosition = 20; }
-                    doc.text(memLines, 20, yPosition);
-                    yPosition += (memLines.length * 4) + 2;
+                    yPosition = pdfImprimirLineas(doc, memLines, 20, yPosition, 4) + 2;
                 }
 
                 if (propuesta.fechaInclusion) {
@@ -5135,23 +5279,26 @@
             const nombresEstados = { 'no-iniciada': 'No iniciada', 'en-proceso': 'En proceso', 'conseguida': 'Conseguida' };
             let yPosition = 55;
 
+            if (indicadoresPorResponsable.length === 0) {
+                alert('No hay indicadores con actuaciones de ' + nombreResponsable + '.');
+                return;
+            }
+
             indicadoresPorResponsable.forEach(item => {
                 const propuesta = item.propuesta;
                 if (yPosition > 250) { doc.addPage(); yPosition = 20; }
 
                 doc.setFontSize(11);
                 doc.setFont(undefined, 'bold');
-                doc.text('Indicador ' + propuesta.id + ' - ' + propuesta.descripcion, 20, yPosition, { maxWidth: 170 });
-                const descripcionHeight = doc.splitTextToSize('Indicador ' + propuesta.id + ' - ' + propuesta.descripcion, 170).length;
-                yPosition += (descripcionHeight * 6) + 2;
+                const tituloLineas = doc.splitTextToSize('Indicador ' + propuesta.id + ' - ' + propuesta.descripcion, 170);
+                yPosition = pdfImprimirLineas(doc, tituloLineas, 20, yPosition, 6) + 2;
 
                 doc.setFontSize(9);
                 doc.setFont(undefined, 'italic');
                 doc.setTextColor(100, 100, 100);
                 const areaFactor = 'Ámbito: ' + item.area + ' > Proceso: ' + item.factor;
                 const areaFactorLines = doc.splitTextToSize(areaFactor, 170);
-                doc.text(areaFactorLines, 20, yPosition);
-                yPosition += (areaFactorLines.length * 4) + 1;
+                yPosition = pdfImprimirLineas(doc, areaFactorLines, 20, yPosition, 4) + 1;
                 doc.setTextColor(0, 0, 0);
 
                 doc.setFont(undefined, 'normal');
@@ -5340,6 +5487,12 @@
                 });
             });
 
+            // La descripción se sincroniza al escribir: al añadir o quitar otra
+            // actuación la lista se re-renderiza y, sin este enlace, se perdía
+            // lo tecleado (solo se leía al pulsar Guardar)
+            const descTa = indDiv.querySelector('.edit-ind-desc');
+            descTa.addEventListener('input', function() { ind.descripcion = this.value; });
+
             // Nuevos campos: temporalización, logro, justificación y dificultades (binding in-place)
             const tempInput = indDiv.querySelector('.edit-ind-temp');
             tempInput.addEventListener('input', function() { ind.temporalizacion = this.value; });
@@ -5416,12 +5569,18 @@
             // Populate responsable select for new actuación
             document.getElementById('new-indicador-resp').innerHTML = getOpcionesResponsables([]);
 
+            // Reset del bloque «Añadir nueva actuación»: sin esto, el texto
+            // tecleado en una edición anterior reaparecía al reabrir el modal
+            // y podía acabar añadiéndose por error
+            document.getElementById('new-indicador-desc').value = '';
+            document.getElementById('new-indicador-temp').value = '';
+
             // Reset edit-resps-list
             document.getElementById('edit-resps-list').innerHTML = '';
             document.getElementById('edit-resps-list').dataset.resps = JSON.stringify([]);
 
             // Show modal
-            const modal = new bootstrap.Modal(document.getElementById('editarPropuestaModal'));
+            const modal = bootstrap.Modal.getOrCreateInstance(document.getElementById('editarPropuestaModal'));
             modal.show();
         }
 
@@ -5439,6 +5598,13 @@
             const nuevoValorObj = document.getElementById('edit-valor-obj').value.trim();
             const nuevaPropMejora = document.getElementById('edit-prop-mejora').value.trim();
             const nuevaMemoria = document.getElementById('edit-memoria').value.trim();
+
+            // Misma exigencia que el formulario de alta: un indicador sin
+            // descripción queda invisible en la ficha y en los informes
+            if (!nuevaDesc) {
+                alert('La descripción del indicador no puede quedar vacía.');
+                return;
+            }
 
             let propuestaEncontrada = null;
             areasData.forEach(area => {
@@ -5465,7 +5631,7 @@
                 propuestaEncontrada.estado = radioEstadoInd.value;
                 if (radioEstadoInd.value === 'conseguida') {
                     if (!propuestaEncontrada.fechaConsecucion) {
-                        propuestaEncontrada.fechaConsecucion = new Date().toISOString().split('T')[0];
+                        propuestaEncontrada.fechaConsecucion = hoyISO();
                     }
                 } else {
                     propuestaEncontrada.fechaConsecucion = null;
@@ -5496,7 +5662,7 @@
             });
             propuestaEncontrada.indicadores = indicadoresEditados;
 
-            bootstrap.Modal.getInstance(document.getElementById('editarPropuestaModal')).hide();
+            bootstrap.Modal.getOrCreateInstance(document.getElementById('editarPropuestaModal')).hide();
             llenarFiltroResponsables();
             actualizarVista();
             guardarEstados();
@@ -5699,7 +5865,7 @@
             document.getElementById('btn-guardar-actuaciones').onclick = function() {
                 guardarCambiosActuaciones(propuesta.id);
             };
-            new bootstrap.Modal(document.getElementById('actuacionesModal')).show();
+            bootstrap.Modal.getOrCreateInstance(document.getElementById('actuacionesModal')).show();
         }
 
         function guardarCambiosActuaciones(propuestaId) {
@@ -5741,7 +5907,7 @@
             propuesta.estado = nuevoEstadoInd;
             if (nuevoEstadoInd === 'conseguida') {
                 if (!propuesta.fechaConsecucion) {
-                    propuesta.fechaConsecucion = new Date().toISOString().split('T')[0];
+                    propuesta.fechaConsecucion = hoyISO();
                 }
             } else {
                 propuesta.fechaConsecucion = null;
@@ -5752,7 +5918,7 @@
                 ind.dificultades = nuevos[idx].dificultades;
             });
 
-            bootstrap.Modal.getInstance(document.getElementById('actuacionesModal')).hide();
+            bootstrap.Modal.getOrCreateInstance(document.getElementById('actuacionesModal')).hide();
             actualizarVista();
             guardarEstados();
         }
@@ -5772,7 +5938,7 @@
             }
 
             document.getElementById('nuevo-responsable-nombre').value = '';
-            bootstrap.Modal.getInstance(document.getElementById('nuevoResponsableModal')).hide();
+            bootstrap.Modal.getOrCreateInstance(document.getElementById('nuevoResponsableModal')).hide();
 
             // Refresh selects
             document.getElementById('new-indicador-resp').innerHTML = getOpcionesResponsables([]);
@@ -5790,7 +5956,9 @@
             if (!window.listaResponsablesGlobal) window.listaResponsablesGlobal = [];
             db.collection('pdm26_data').doc('responsables').set({
                 lista: window.listaResponsablesGlobal
-            }, { merge: true });
+            }, { merge: true }).catch(function (e) {
+                console.warn('No se pudo guardar la lista de responsables:', e.message);
+            });
         }
 
         // Render del panel «Gestión de Responsables» (admin): cada
