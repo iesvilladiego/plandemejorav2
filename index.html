@@ -144,10 +144,6 @@
         }
         @media (min-width: 769px) {
             header { position: relative; text-align: left; padding: 1rem 1.5rem; }
-            #auth-status {
-                position: absolute; right: 1.5rem; top: 50%; transform: translateY(-50%);
-                flex-direction: column; align-items: flex-end;
-            }
         }
 
         /* ===== Welcome screen ===== */
@@ -925,15 +921,11 @@
             <p class="small text-muted mb-0" id="version-text"></p>
             <a id="tutorial-pdf-link" href="#" download="" class="small text-muted text-decoration-none" style="opacity: 0.55; transition: opacity 0.2s; display: inline-block;" onmouseenter="this.style.opacity='0.85'" onmouseleave="this.style.opacity='0.55'" title="Descargar tutorial en PDF">📄 Tutorial en PDF</a>
             <div id="auth-status">
-                <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap; justify-content: center;">
-                    <span id="user-info-badge" class="badge bg-success font-monospace px-3 py-2 fw-normal hidden"></span>
-                    <button id="btn-logout" class="btn btn-sm btn-outline-secondary hidden">Cerrar sesión</button>
-                    <span id="version-chip" class="badge bg-secondary font-monospace hidden" title="Versión de la app, leída del service worker"></span>
-                </div>
-                <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap; justify-content: center;">
-                    <button id="btn-guardar-manual" class="btn btn-sm btn-outline-warning hidden" title="Guardar ahora">💾 Guardar</button>
-                    <span id="save-status" class="small text-muted hidden"></span>
-                </div>
+                <span id="user-info-badge" class="badge bg-success font-monospace px-3 py-2 fw-normal hidden"></span>
+                <button id="btn-guardar-manual" class="btn btn-sm btn-outline-warning hidden" title="Guardar ahora">💾 Guardar</button>
+                <span id="save-status" class="small text-muted hidden"></span>
+                <button id="btn-logout" class="btn btn-sm btn-outline-secondary hidden">Cerrar sesión</button>
+                <span id="version-chip" class="badge bg-secondary font-monospace hidden" title="Versión de la app, leída del service worker"></span>
             </div>
         </header>
 
