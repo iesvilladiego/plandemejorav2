@@ -1089,6 +1089,23 @@
                                     </div>
                                 </div>
                             </div>
+                            <!-- Gestión de Responsables (solo admin) -->
+                            <div class="accordion-item">
+                                <h2 class="accordion-header">
+                                    <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#collapseResp" aria-expanded="false" aria-controls="collapseResp">
+                                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-tags-fill me-2" viewBox="0 0 16 16"><path d="M2 2a2 2 0 0 1 2-2h5.293A1 1 0 0 1 10 .293L13.707 4a1 1 0 0 1 .293.707V14a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V2zm5.5 1a.5.5 0 0 0 0 1h3a.5.5 0 0 0 0-1h-3zM4 5.5a.5.5 0 0 0 0 1h7a.5.5 0 0 0 0-1H4zm0 2a.5.5 0 0 0 0 1h7a.5.5 0 0 0 0-1H4zm0 2a.5.5 0 0 0 0 1h4a.5.5 0 0 0 0-1H4z"/></svg>
+                                        Gestión de Responsables
+                                        <span class="badge bg-danger ms-2">Solo Admin</span>
+                                    </button>
+                                </h2>
+                                <div id="collapseResp" class="accordion-collapse collapse" data-bs-parent="#accordionUsers">
+                                    <div class="accordion-body">
+                                        <p class="small text-muted mb-2">Renombrar o eliminar un responsable se propaga a todas las actuaciones que lo usan. Añadir nuevos desde el modal «+ Nuevo responsable» de cualquier edición.</p>
+                                        <ul id="list-responsables" class="list-group list-group-flush border-top mb-3" style="max-height: 280px; overflow-y: auto;"></ul>
+                                        <div id="resp-mgmt-msg" class="small fw-bold text-secondary"></div>
+                                    </div>
+                                </div>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -1338,11 +1355,13 @@
                         <label class="form-label fw-bold">Fecha de inclusión</label>
                         <input type="date" id="edit-propuesta-fecha" class="form-control">
                     </div>
-                    <div class="mb-3">
+                    <div class="mb-3" id="edit-actuaciones-block">
                         <label class="form-label fw-bold">Actuaciones vinculadas</label>
                         <div id="edit-indicadores-list"></div>
-                        <div class="mt-3 p-3 bg-light rounded border">
-                            <h6 class="fw-bold mb-2">Añadir nueva actuación</h6>
+                    </div>
+                    <div class="mb-3" id="edit-nueva-actuacion-block">
+                        <label class="form-label fw-bold">Añadir nueva actuación</label>
+                        <div class="p-3 bg-light rounded border">
                             <div class="mb-2">
                                 <input type="text" id="new-indicador-desc" class="form-control form-control-sm" placeholder="Descripción de la actuación">
                             </div>
@@ -1357,10 +1376,10 @@
                                         <select id="new-indicador-resp" class="form-select form-select-sm"></select>
                                     </div>
                                     <div class="col-sm-3">
-                                        <button id="btn-edit-add-resp" class="btn btn-outline-primary btn-sm w-100" type="button">+ Añadir</button>
+                                        <button id="btn-edit-add-resp" class="btn btn-outline-primary btn-sm w-100" type="button">+ Añadir responsable</button>
                                     </div>
                                     <div class="col-sm-2">
-                                        <button id="btn-new-responsable-modal" class="btn btn-outline-info btn-sm w-100" type="button" title="Añadir nuevo responsable">+ Nuevo</button>
+                                        <button id="btn-new-responsable-modal" class="btn btn-outline-info btn-sm w-100" type="button" title="Añadir nuevo responsable">+ Nuevo responsable</button>
                                     </div>
                                     <div class="col-sm-2">
                                         <button id="btn-add-indicador" class="btn btn-success btn-sm w-100" type="button">Añadir ind.</button>
@@ -1638,7 +1657,7 @@
                                     fechaInclusion: "2026-11-03",
                                     fechaConsecucion: null,
                                     indicadores: [
-                                        { descripcion: "Llevar a cabo efectivamente el Plan Lector del IES", temporalizacion: "Todo el curso", responsable: ["Profesorado del centro"], estado: "no-iniciada", logro: "", justificacion: "", dificultades: "" },
+                                        { descripcion: "Llevar a cabo efectivamente el Plan Lector del IES", temporalizacion: "Todo el curso", responsable: ["Profesorado"], estado: "no-iniciada", logro: "", justificacion: "", dificultades: "" },
                                         { descripcion: "Fomentar actividades complementarias, relacionadas con la lectura: actuaciones en Biblioteca, efemérides (Día de la Biblioteca, Día del Libro)", temporalizacion: "Todo el curso", responsable: ["Departamento de Lengua Castellana y Literatura", "Coordinación de Biblioteca", "DACE"], estado: "no-iniciada", logro: "", justificacion: "", dificultades: "" }
                                     ]
                                 },
@@ -1652,7 +1671,7 @@
                                     fechaInclusion: "2026-11-03",
                                     fechaConsecucion: null,
                                     indicadores: [
-                                        { descripcion: "Llevar a cabo efectivamente el Plan Lector del IES", temporalizacion: "Todo el curso", responsable: ["Profesorado del centro"], estado: "no-iniciada", logro: "", justificacion: "", dificultades: "" },
+                                        { descripcion: "Llevar a cabo efectivamente el Plan Lector del IES", temporalizacion: "Todo el curso", responsable: ["Profesorado"], estado: "no-iniciada", logro: "", justificacion: "", dificultades: "" },
                                         { descripcion: "Fomentar actividades complementarias, relacionadas con la lectura: actuaciones en Biblioteca, efemérides (Día de la Biblioteca, Día del Libro)", temporalizacion: "Todo el curso", responsable: ["Departamento de Lengua Castellana y Literatura", "Coordinación de Biblioteca", "DACE"], estado: "no-iniciada", logro: "", justificacion: "", dificultades: "" }
                                     ]
                                 },
@@ -1667,8 +1686,8 @@
                                     fechaConsecucion: null,
                                     indicadores: [
                                         { descripcion: "Llevar a cabo efectivamente el programa de razonamiento matemático estipulado por el centro.", temporalizacion: "A lo largo de todo el curso.", responsable: ["Todos los departamentos"], estado: "no-iniciada", logro: "", justificacion: "", dificultades: "" },
-                                        { descripcion: "Resolución de problemas del tipo propuesto en las PED.", temporalizacion: "Durante toda la etapa", responsable: ["Departamento de matemáticas"], estado: "no-iniciada", logro: "", justificacion: "", dificultades: "" },
-                                        { descripcion: "Participación en proyectos intercentro relacionados con la competencia matemática y realización de actividades en las distintas efemérides relacionadas con las matemáticas.", temporalizacion: "A lo largo de todo el curso.", responsable: ["Departamento de matemáticas", "DACE"], estado: "no-iniciada", logro: "", justificacion: "", dificultades: "" }
+                                        { descripcion: "Resolución de problemas del tipo propuesto en las PED.", temporalizacion: "Durante toda la etapa", responsable: ["Departamento de Matemáticas"], estado: "no-iniciada", logro: "", justificacion: "", dificultades: "" },
+                                        { descripcion: "Participación en proyectos intercentro relacionados con la competencia matemática y realización de actividades en las distintas efemérides relacionadas con las matemáticas.", temporalizacion: "A lo largo de todo el curso.", responsable: ["Departamento de Matemáticas", "DACE"], estado: "no-iniciada", logro: "", justificacion: "", dificultades: "" }
                                     ]
                                 },
                                 {
@@ -1681,9 +1700,9 @@
                                     fechaInclusion: "2026-11-03",
                                     fechaConsecucion: null,
                                     indicadores: [
-                                        { descripcion: "Llevar a cabo efectivamente el programa de razonamiento matemático estipulado por el centro.", temporalizacion: "A lo largo de todo el curso.", responsable: ["Profesorado del centro"], estado: "no-iniciada", logro: "", justificacion: "", dificultades: "" },
-                                        { descripcion: "Resolución de problemas del tipo propuesto en las PED:", temporalizacion: "Durante toda la etapa.", responsable: ["Departamento de matemáticas"], estado: "no-iniciada", logro: "", justificacion: "", dificultades: "" },
-                                        { descripcion: "Llevar a cabo efectivamente el programa de razonamiento matemático estipulado por el centro.", temporalizacion: "A lo largo de todo el curso.", responsable: ["Departamento de matemáticas", "DACE"], estado: "no-iniciada", logro: "", justificacion: "", dificultades: "" }
+                                        { descripcion: "Llevar a cabo efectivamente el programa de razonamiento matemático estipulado por el centro.", temporalizacion: "A lo largo de todo el curso.", responsable: ["Profesorado"], estado: "no-iniciada", logro: "", justificacion: "", dificultades: "" },
+                                        { descripcion: "Resolución de problemas del tipo propuesto en las PED:", temporalizacion: "Durante toda la etapa.", responsable: ["Departamento de Matemáticas"], estado: "no-iniciada", logro: "", justificacion: "", dificultades: "" },
+                                        { descripcion: "Llevar a cabo efectivamente el programa de razonamiento matemático estipulado por el centro.", temporalizacion: "A lo largo de todo el curso.", responsable: ["Departamento de Matemáticas", "DACE"], estado: "no-iniciada", logro: "", justificacion: "", dificultades: "" }
                                     ]
                                 },
                                 {
@@ -1696,7 +1715,7 @@
                                     fechaInclusion: "2026-11-03",
                                     fechaConsecucion: null,
                                     indicadores: [
-                                        { descripcion: "Llevar a cabo efectivamente el Plan Lector del IES", temporalizacion: "Todo el curso", responsable: ["Profesorado del centro"], estado: "no-iniciada", logro: "", justificacion: "", dificultades: "" },
+                                        { descripcion: "Llevar a cabo efectivamente el Plan Lector del IES", temporalizacion: "Todo el curso", responsable: ["Profesorado"], estado: "no-iniciada", logro: "", justificacion: "", dificultades: "" },
                                         { descripcion: "Fomentar actividades complementarias, relacionadas con la lectura: actuaciones en Biblioteca, efemérides (Día de la Biblioteca, Día del Libro)", temporalizacion: "Todo el curso", responsable: ["Departamento de Lengua Castellana y Literatura", "Coordinación de Biblioteca", "DACE"], estado: "no-iniciada", logro: "", justificacion: "", dificultades: "" }
                                     ]
                                 },
@@ -1710,7 +1729,7 @@
                                     fechaInclusion: "2026-11-03",
                                     fechaConsecucion: null,
                                     indicadores: [
-                                        { descripcion: "Llevar a cabo efectivamente el Plan Lector del IES", temporalizacion: "Todo el curso", responsable: ["Profesorado del centro"], estado: "no-iniciada", logro: "", justificacion: "", dificultades: "" },
+                                        { descripcion: "Llevar a cabo efectivamente el Plan Lector del IES", temporalizacion: "Todo el curso", responsable: ["Profesorado"], estado: "no-iniciada", logro: "", justificacion: "", dificultades: "" },
                                         { descripcion: "Fomentar actividades complementarias, relacionadas con la lectura: actuaciones en Biblioteca, efemérides (Día de la Biblioteca, Día del Libro)", temporalizacion: "Todo el curso", responsable: ["Departamento de Lengua Castellana y Literatura", "Coordinación de Biblioteca", "DACE"], estado: "no-iniciada", logro: "", justificacion: "", dificultades: "" }
                                     ]
                                 }
@@ -2049,6 +2068,7 @@
                 document.getElementById('btnExportar').classList.remove('hidden');
                 document.getElementById('btnImportar').classList.remove('hidden');
                 cargarListaUsuarios();
+                renderListaResponsablesAdmin();
             } else if (esPerfilUsuario) {
                 document.getElementById('user-management-section').classList.add('hidden');
                 document.getElementById('bloqueo-edicion-section').classList.add('hidden');
@@ -2556,6 +2576,7 @@
             llenarFiltroAreas();
             llenarFiltroFactores();
             llenarFiltroResponsables();
+            renderListaResponsablesAdmin();
             llenarSelectNuevaPropuesta();
             actualizarVista();
             actualizarVisibilidadBtnBorrar();
@@ -3830,6 +3851,7 @@
                 }
                 // Actualizar selects de responsables
                 llenarFiltroResponsables();
+                renderListaResponsablesAdmin();
                 console.log('Responsables actualizados por cambio remoto.');
             }, function(error) {
                 console.error('Error en listener de responsables:', error);
@@ -5280,10 +5302,12 @@
             renderIndicadoresInModal(propuesta);
 
             // Indicador en estado «No iniciada»: al editarlo no se muestran
-            // las actuaciones vinculadas ni nada relacionado con ellas. La
-            // lista se sigue montando (oculta) para que, al guardar, sus
-            // valores se conserven intactos.
-            const bloqueActuaciones = document.getElementById('edit-indicadores-list').closest('.mb-3');
+            // las actuaciones vinculadas. La lista se sigue montando (oculta)
+            // para que, al guardar, sus valores se conserven intactos. El panel
+            // «Añadir nueva actuación» (con el botón «Añadir responsable») se
+            // mantiene SIEMPRE visible: pertenece a la edición, no a las
+            // actuaciones ya existentes, y debe poder usarse en cualquier estado.
+            const bloqueActuaciones = document.getElementById('edit-actuaciones-block');
             if (bloqueActuaciones) bloqueActuaciones.classList.toggle('hidden', propuesta.estado === 'no-iniciada');
 
             // Selector del estado del indicador (mismo que el modal de
@@ -5678,11 +5702,7 @@
                 .filter(pieza => !window.listaResponsablesGlobal.includes(pieza));
             if (nuevos.length) {
                 window.listaResponsablesGlobal = window.listaResponsablesGlobal.concat(nuevos);
-                if (db) {
-                    db.collection('pdm26_data').doc('responsables').set({
-                        lista: window.listaResponsablesGlobal
-                    }, { merge: true });
-                }
+                persistirListaResponsablesGlobal();
             }
 
             document.getElementById('nuevo-responsable-nombre').value = '';
@@ -5694,6 +5714,153 @@
                 sel.innerHTML = getOpcionesResponsables([]);
             });
             actualizarSelectResponsables();
+            llenarFiltroResponsables();
+            renderListaResponsablesAdmin();
+        }
+
+        // Persistir lista global de responsables en Firestore.
+        function persistirListaResponsablesGlobal() {
+            if (!db) return;
+            if (!window.listaResponsablesGlobal) window.listaResponsablesGlobal = [];
+            db.collection('pdm26_data').doc('responsables').set({
+                lista: window.listaResponsablesGlobal
+            }, { merge: true });
+        }
+
+        // Render del panel «Gestión de Responsables» (admin): cada
+        // responsable conocido (lista global + los que aparecen en
+        // actuaciones) se muestra con botones para renombrar y eliminar.
+        function renderListaResponsablesAdmin() {
+            const ul = document.getElementById('list-responsables');
+            if (!ul) return;
+            const todos = obtenerTodosResponsables();
+            ul.innerHTML = '';
+            if (!todos.length) {
+                ul.innerHTML = '<li class="list-group-item small text-muted">No hay responsables definidos.</li>';
+                return;
+            }
+            todos.forEach(function (nombre) {
+                const li = document.createElement('li');
+                li.className = 'list-group-item d-flex align-items-center gap-2 py-1 px-2';
+                const span = document.createElement('span');
+                span.className = 'flex-grow-1 small';
+                span.textContent = nombre;
+                const btnRename = document.createElement('button');
+                btnRename.className = 'btn btn-sm btn-outline-secondary';
+                btnRename.title = 'Renombrar';
+                btnRename.type = 'button';
+                btnRename.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" fill="currentColor" viewBox="0 0 16 16"><path d="M15.502 1.94a.5.5 0 0 1 0 .706L14.459 3.69l-2-2L13.502.646a.5.5 0 0 1 .707 0l1.293 1.293zm-1.75 2.456-2-2L4.939 9.21a.5.5 0 0 0-.121.196l-.805 2.414a.25.25 0 0 0 .316.316l2.414-.805a.5.5 0 0 0 .196-.12l6.813-6.814z"/></svg>';
+                btnRename.addEventListener('click', function () { renombrarResponsableGlobal(nombre); });
+                const btnDel = document.createElement('button');
+                btnDel.className = 'btn btn-sm btn-outline-danger';
+                btnDel.title = 'Eliminar';
+                btnDel.type = 'button';
+                btnDel.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" fill="currentColor" viewBox="0 0 16 16"><path d="M5.5 5.5A.5.5 0 0 1 6 6v6a.5.5 0 0 1-1 0V6a.5.5 0 0 1 .5-.5zm2.5 0a.5.5 0 0 1 .5.5v6a.5.5 0 0 1-1 0V6a.5.5 0 0 1 .5-.5zm3 .5a.5.5 0 0 0-1 0v6a.5.5 0 0 0 1 0V6z"/><path fill-rule="evenodd" d="M14.5 3a1 1 0 0 1-1 1H13v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V4h-.5a1 1 0 0 1-1-1V2a1 1 0 0 1 1-1H5.5l1-1h3l1 1h2.5a1 1 0 0 1 1 1v1zM4.118 4 4 4.059V13a1 1 0 0 0 1 1h6a1 1 0 0 0 1-1V4.059L11.882 4H4.118zM2.5 3V2h11v1h-11z"/></svg>';
+                btnDel.addEventListener('click', function () { eliminarResponsableGlobal(nombre); });
+                li.appendChild(span);
+                li.appendChild(btnRename);
+                li.appendChild(btnDel);
+                ul.appendChild(li);
+            });
+        }
+
+        // Renombrar un responsable: propaga el cambio a todas las
+        // actuaciones que lo usan, lo quita de la lista global y lo
+        // sustituye por el nuevo nombre (sin duplicar si ya existía).
+        function renombrarResponsableGlobal(viejo) {
+            if (!viejo) return;
+            const nuevo = prompt('Nuevo nombre para "' + viejo + '":', viejo);
+            if (nuevo === null) return;
+            const nuevoTrim = nuevo.trim();
+            if (!nuevoTrim) { alert('El nombre no puede quedar vacío.'); return; }
+            if (nuevoTrim === viejo) return;
+            if (nuevoTrim.indexOf(',') !== -1 || /\sy\s/i.test(nuevoTrim)) {
+                alert('El nombre no puede contener comas ni la conjunción " y ".\nPara crear varios responsables, usa el botón «+ Nuevo responsable».');
+                return;
+            }
+            // Si el nuevo ya existe, fusionar: desaparece «viejo» y sus
+            // actuaciones pasan al responsable existente.
+            let cambiadas = 0;
+            areasData.forEach(function (area) {
+                area.factoresClave.forEach(function (factor) {
+                    factor.propuestas.forEach(function (prop) {
+                        (prop.indicadores || []).forEach(function (ind) {
+                            const resps = normalizarResponsable(ind.responsable);
+                            if (resps.indexOf(viejo) !== -1) {
+                                const sin = resps.filter(function (r) { return r !== viejo; });
+                                if (sin.indexOf(nuevoTrim) === -1) sin.push(nuevoTrim);
+                                ind.responsable = sin;
+                                cambiadas++;
+                            }
+                        });
+                    });
+                });
+            });
+            // Mantener la lista global sincronizada
+            if (window.listaResponsablesGlobal) {
+                window.listaResponsablesGlobal = window.listaResponsablesGlobal
+                    .filter(function (r) { return r !== viejo; });
+                if (window.listaResponsablesGlobal.indexOf(nuevoTrim) === -1) {
+                    window.listaResponsablesGlobal.push(nuevoTrim);
+                }
+            }
+            persistirListaResponsablesGlobal();
+            llenarFiltroResponsables();
+            renderListaResponsablesAdmin();
+            actualizarSelectResponsables();
+            document.getElementById('new-indicador-resp').innerHTML = getOpcionesResponsables([]);
+            document.querySelectorAll('.edit-ind-resp-select').forEach(function (sel) {
+                sel.innerHTML = getOpcionesResponsables([]);
+            });
+            mostrarMsgRespMgmt('Renombrado «' + viejo + '» → «' + nuevoTrim + '» (' + cambiadas + ' actuaciones).');
+            actualizarVista();
+            guardarEstados();
+        }
+
+        // Eliminar un responsable: lo quita de todas las actuaciones y
+        // de la lista global. Las actuaciones que se quedan sin ningún
+        // responsable muestran «Sin asignar».
+        function eliminarResponsableGlobal(nombre) {
+            if (!nombre) return;
+            if (!confirm('¿Eliminar el responsable "' + nombre + '"?\n\nSe quitará de todas las actuaciones que lo usan.')) return;
+            let cambiadas = 0;
+            areasData.forEach(function (area) {
+                area.factoresClave.forEach(function (factor) {
+                    factor.propuestas.forEach(function (prop) {
+                        (prop.indicadores || []).forEach(function (ind) {
+                            const resps = normalizarResponsable(ind.responsable);
+                            if (resps.indexOf(nombre) !== -1) {
+                                ind.responsable = resps.filter(function (r) { return r !== nombre; });
+                                cambiadas++;
+                            }
+                        });
+                    });
+                });
+            });
+            if (window.listaResponsablesGlobal) {
+                window.listaResponsablesGlobal = window.listaResponsablesGlobal
+                    .filter(function (r) { return r !== nombre; });
+            }
+            persistirListaResponsablesGlobal();
+            llenarFiltroResponsables();
+            renderListaResponsablesAdmin();
+            actualizarSelectResponsables();
+            document.getElementById('new-indicador-resp').innerHTML = getOpcionesResponsables([]);
+            document.querySelectorAll('.edit-ind-resp-select').forEach(function (sel) {
+                sel.innerHTML = getOpcionesResponsables([]);
+            });
+            mostrarMsgRespMgmt('Eliminado «' + nombre + '» (' + cambiadas + ' actuaciones).');
+            actualizarVista();
+            guardarEstados();
+        }
+
+        function mostrarMsgRespMgmt(txt) {
+            const el = document.getElementById('resp-mgmt-msg');
+            if (!el) return;
+            el.textContent = txt;
+            el.style.display = 'block';
+            clearTimeout(window.__respMsgT);
+            window.__respMsgT = setTimeout(function () { el.textContent = ''; }, 5000);
         }
 
         function actualizarSelectResponsables() {
