@@ -336,6 +336,31 @@
         .area-cabecera.abierta .area-chevron { transform: rotate(90deg); }
         .area-cuerpo.replegado { display: none; }
         .area-cabecera + .area-cuerpo { padding-top: 8px; }
+        /* Check "Mostrar indicadores sin propuestas" en la cabecera del ámbito */
+        .area-filtro {
+            display: inline-flex; align-items: center; gap: 7px;
+            flex-shrink: 0;
+            padding: 5px 12px;
+            background-color: #fff;
+            border: 1px solid #e2e8f0;
+            border-radius: 999px;
+            cursor: pointer; user-select: none;
+            font-size: 0.82rem; font-weight: 600; color: #475569;
+            transition: var(--transition-base);
+        }
+        .area-filtro:hover { border-color: var(--primary-color); color: var(--primary-dark); background-color: #eff6ff; }
+        .area-filtro:focus-within { outline: 2px solid var(--primary-color); outline-offset: 2px; }
+        .area-filtro .form-check-input { margin: 0; cursor: pointer; }
+        .area-filtro-texto { white-space: nowrap; }
+        /* Nota de ámbito sin indicadores visibles por el check */
+        .area-sin-propuestas { color: var(--secondary-color); font-style: italic; margin-top: 10px; }
+        @media (max-width: 576px) {
+            .area-cabecera { flex-wrap: wrap; row-gap: 8px; }
+            .area-cabecera .area-title { order: 1; }
+            .area-chevron { order: 2; }
+            .area-filtro { order: 3; flex-basis: 100%; justify-content: center; }
+            .area-filtro-texto { white-space: normal; }
+        }
         /* ===== Grupo GESTIÓN (acordeón maestro de paneles) ===== */
         .gestion-grupo { margin-bottom: 22px; }
         .gestion-cabecera {
@@ -2318,6 +2343,7 @@
                     sessionStorage.removeItem('plan_mejora_user');
                     currentUser = null;
                     ambitoAbiertoId = null; // replegar ámbitos al cerrar sesión
+                    ambitoMostrarSinPropuestas = {}; // restablecer los checks por ámbito
                     recogerGestion(); // recoger el grupo GESTIÓN al cerrar sesión
                     document.getElementById('user-info-badge').classList.add('hidden');
                     document.getElementById('btn-logout').classList.add('hidden');
@@ -4211,8 +4237,11 @@
             return propuestaElement;
         }
 
-        // Renderizar un proceso con sus indicadores
-        function renderFactor(factor) {
+        // Renderizar un proceso con sus indicadores. mostrarTodosAmbito es el
+        // estado del check "Mostrar indicadores sin propuestas" del ámbito que
+        // contiene este proceso; desmarcado, solo pasan los indicadores con
+        // propuesta de mejora redactada.
+        function renderFactor(factor, mostrarTodosAmbito) {
             const factorElement = document.createElement('div');
             factorElement.className = 'factor-section mb-4';
 
@@ -4232,6 +4261,7 @@
             }
 
             let factorTienePropuestas = false;
+            let ocultadasPorAmbito = 0;
 
             if (factor.propuestas.length > 0) {
                 factor.propuestas.forEach(propuesta => {
@@ -4252,8 +4282,14 @@
                     }
 
                     if (coincideResponsable && coincideEstado) {
-                        factorTienePropuestas = true;
-                        factorElement.appendChild(renderPropuestaCard(propuesta, factor));
+                        if (!mostrarTodosAmbito && !tienePropuestaImplementada(propuesta)) {
+                            // Oculto por el check del ámbito: sería visible
+                            // con el check marcado
+                            ocultadasPorAmbito++;
+                        } else {
+                            factorTienePropuestas = true;
+                            factorElement.appendChild(renderPropuestaCard(propuesta, factor));
+                        }
                     }
                 });
             }
@@ -4267,7 +4303,7 @@
                 factorTienePropuestas = true;
             }
 
-            return { element: factorElement, tieneContenido: factorTienePropuestas };
+            return { element: factorElement, tieneContenido: factorTienePropuestas, ocultadasPorAmbito: ocultadasPorAmbito };
         }
 
         // Acordeón de ámbitos (home): identificador del ámbito desplegado.
@@ -4280,6 +4316,19 @@
         function alternarAmbito(areaId) {
             ambitoAbiertoId = (ambitoAbiertoId === areaId) ? null : areaId;
             actualizarVista();
+        }
+
+        // Check "Mostrar indicadores sin propuestas" por ámbito: mapa
+        // areaId -> true. Sin entrada (valor inicial), el ámbito muestra solo
+        // sus indicadores con propuesta; marcado, muestra todos. Se conserva
+        // al filtrar y se restablece al cerrar sesión.
+        let ambitoMostrarSinPropuestas = {};
+
+        // ¿El indicador cuenta como "con propuesta implementada"? Regla:
+        // tiene la Propuesta de mejora redactada en su ficha. Para exigir
+        // además un estado de ejecución, añadirlo aquí (único punto de cambio).
+        function tienePropuestaImplementada(propuesta) {
+            return !!(propuesta.propuestaMejora || '').trim();
         }
 
         // Renderizar un ámbito con sus procesos, como acordeón replegado
@@ -4311,14 +4360,41 @@
                 if (filtroArea && area.id == filtroArea) areaTitle.classList.add('estado-highlight');
                 cabecera.appendChild(areaTitle);
 
+                // Check "Mostrar indicadores sin propuestas" del ámbito: filtra
+                // sus indicadores. El clic sobre él no alterna el acordeón
+                // (los manejadores de la cabecera lo excluyen).
+                const filtroToggle = document.createElement('label');
+                filtroToggle.className = 'area-filtro';
+
+                const filtroInput = document.createElement('input');
+                filtroInput.type = 'checkbox';
+                filtroInput.id = 'area-filtro-' + area.id;
+                filtroInput.className = 'form-check-input';
+                filtroInput.checked = !!ambitoMostrarSinPropuestas[area.id];
+                filtroInput.addEventListener('change', function() {
+                    if (this.checked) ambitoMostrarSinPropuestas[area.id] = true;
+                    else delete ambitoMostrarSinPropuestas[area.id];
+                    actualizarVista();
+                });
+
+                const filtroTexto = document.createElement('span');
+                filtroTexto.className = 'area-filtro-texto';
+                filtroTexto.textContent = 'Mostrar indicadores sin propuestas';
+
+                filtroToggle.appendChild(filtroInput);
+                filtroToggle.appendChild(filtroTexto);
+                cabecera.appendChild(filtroToggle);
+
                 // Chevron que rota al desplegar el ámbito
                 cabecera.insertAdjacentHTML('beforeend',
                     '<svg class="area-chevron" xmlns="http://www.w3.org/2000/svg" width="20" height="20" fill="currentColor" viewBox="0 0 16 16" aria-hidden="true"><path fill-rule="evenodd" d="M4.646 1.646a.5.5 0 0 1 .708 0l6 6a.5.5 0 0 1 0 .708l-6 6a.5.5 0 0 1-.708-.708L10.293 8 4.646 2.354a.5.5 0 0 1 0-.708z"/></svg>');
 
-                cabecera.addEventListener('click', function() {
+                cabecera.addEventListener('click', function(ev) {
+                    if (ev.target.closest('.area-filtro')) return; // el check gestiona su propio clic
                     alternarAmbito(area.id);
                 });
                 cabecera.addEventListener('keydown', function(ev) {
+                    if (ev.target.closest('.area-filtro')) return; // no robar el Espacio del check
                     if (ev.key === 'Enter' || ev.key === ' ') {
                         ev.preventDefault();
                         alternarAmbito(area.id);
@@ -4331,15 +4407,32 @@
 
             let areaTieneContenido = false;
 
+            // Sin cabecera de acordeón ("Ocultar ámbitos") no hay check: el
+            // filtro del ámbito no se aplica y se ven todos sus indicadores.
+            const mostrarTodosAmbito = ocultarAreas ? true : !!ambitoMostrarSinPropuestas[area.id];
+            let ocultadasEnArea = 0;
+
             area.factoresClave.forEach(factor => {
                 if (filtroFactor && factor.id != filtroFactor) return;
 
-                const { element, tieneContenido } = renderFactor(factor);
+                const { element, tieneContenido, ocultadasPorAmbito } = renderFactor(factor, mostrarTodosAmbito);
+                ocultadasEnArea += ocultadasPorAmbito;
                 if (tieneContenido || (mostrarFactoresSinPropuestas && factor.propuestas.length === 0)) {
                     cuerpo.appendChild(element);
                     if (tieneContenido) areaTieneContenido = true;
                 }
             });
+
+            // Ámbito sin indicadores visibles pero con indicadores ocultos por
+            // el check: se mantiene el acordeón y se avisa, para que el check
+            // quede a mano (marcarlo revela los indicadores del ámbito).
+            if (!areaTieneContenido && ocultadasEnArea > 0) {
+                const nota = document.createElement('p');
+                nota.className = 'area-sin-propuestas';
+                nota.textContent = 'Este ámbito no tiene indicadores con propuesta de mejora. Marca «Mostrar indicadores sin propuestas» para verlos todos.';
+                cuerpo.appendChild(nota);
+                areaTieneContenido = true;
+            }
 
             areaElement.appendChild(cuerpo);
 
