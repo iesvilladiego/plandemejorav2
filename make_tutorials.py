@@ -288,12 +288,13 @@ ADMIN = {
                  'Borrar todos los indicadores y guardar a mano'])),
         ]},
         {'title': 'La pantalla principal', 'blocks': [
-            ('p', 'Al entrar verás el banner del título: **PLAN DE MEJORA V2026** con el curso '
-                  'escolar debajo. En esa misma línea, bajo el curso, están el **chip de versión** '
-                  'de la aplicación y el enlace **Tutorial en PDF**, que descarga esta misma guía. '
-                  'Debajo del banner va la fila de sesión, alineada a la derecha: el botón '
-                  '**Guardar** (solo Admin), el estado del último guardado, el **chip del usuario '
-                  'activo** y el botón **Cerrar sesión**, siempre juntos a la derecha.'),
+            ('p', 'Al entrar verás la cabecera en una sola fila: a la izquierda, el botón '
+                  '**Guardar** (solo Admin) junto al estado del último guardado; en el centro, el '
+                  'título **PLAN DE MEJORA V2026** con el curso escolar debajo; y a la derecha, el '
+                  '**chip de versión** de la aplicación, el enlace **Tutorial en PDF** —que '
+                  'descarga esta misma guía—, el **chip del usuario activo** y el botón '
+                  '**Cerrar sesión**. En pantallas pequeñas esos elementos se reparten en dos o '
+                  'tres líneas siguiendo el mismo orden.'),
             ('p', 'Los 51 indicadores del curso están agrupados por ámbitos. Cada ámbito es un '
                   'acordeón: un clic lo despliega y otro lo recoge, y solo puede haber uno abierto '
                   'a la vez. Cada ámbito lleva el check **«Mostrar indicadores sin propuestas»**: '
@@ -420,12 +421,13 @@ USUARIO = {
                  'Gestionar usuarios, cursos o bloqueos (solo Admin)'])),
         ]},
         {'title': 'La pantalla principal', 'blocks': [
-            ('p', 'Al entrar verás el banner del título: **PLAN DE MEJORA V2026** con el curso '
-                  'escolar debajo. En esa misma línea, bajo el curso, están el **chip de versión** '
-                  'de la aplicación y el enlace **Tutorial en PDF**, que descarga esta misma guía. '
-                  'Debajo del banner va la fila de sesión, alineada a la derecha: el botón '
-                  '**Guardar** (solo Admin), el estado del último guardado, el **chip del usuario '
-                  'activo** y el botón **Cerrar sesión**, siempre juntos a la derecha.'),
+            ('p', 'Al entrar verás la cabecera en una sola fila: a la izquierda, el botón '
+                  '**Guardar** (solo Admin) junto al estado del último guardado; en el centro, el '
+                  'título **PLAN DE MEJORA V2026** con el curso escolar debajo; y a la derecha, el '
+                  '**chip de versión** de la aplicación, el enlace **Tutorial en PDF** —que '
+                  'descarga esta misma guía—, el **chip del usuario activo** y el botón '
+                  '**Cerrar sesión**. En pantallas pequeñas esos elementos se reparten en dos o '
+                  'tres líneas siguiendo el mismo orden.'),
             ('p', 'Los 51 indicadores del curso están agrupados por ámbitos. Cada ámbito es un '
                   'acordeón: un clic lo despliega y otro lo recoge, y solo puede haber uno abierto '
                   'a la vez. Cada ámbito lleva el check **«Mostrar indicadores sin propuestas»**: '
@@ -476,7 +478,58 @@ USUARIO = {
 }
 
 
+# ---------------------------------------------------------------------------
+# Contenido: FOREVIN (reutiliza los capítulos comunes del Admin, que ya
+# llevan las correcciones, y añade los suyos)
+# ---------------------------------------------------------------------------
+
+FOREVIN = {
+    'meta_title': 'Tutorial Plan de Mejora V2026 — perfil FOREVIN',
+    'meta_subject': 'Tutorial de la app Plan de Mejora V2026 para el perfil FOREVIN',
+    'subtitle': 'Perfil FOREVIN · Edición del plan de mejora',
+    'intro': ('Para el equipo de FOREVIN: todo lo del perfil Usuario y además cambiar estados, '
+              'redactar propuestas y memorias, mantener las actuaciones y exportar/importar los '
+              'datos del curso.'),
+    'chapters': [
+        {'title': 'Tu perfil: FOREVIN', 'blocks': [
+            ('p', 'El perfil **FOREVIN** es el perfil de edición: está pensado para el equipo de '
+                  'FOREVIN y para quien tiene encomendada la marcha del plan. Puedes hacer todo lo '
+                  'que hace un Usuario (consultar, filtrar, informes) y además **editar el '
+                  'contenido del plan**: cambiar estados, redactar propuestas de mejora y '
+                  'memorias, y mantener las actuaciones de cada indicador al día.'),
+            ('panels',
+             ('Puedes (además de lo del Usuario)', [
+                 'Cambiar el estado de los indicadores',
+                 'Editar indicadores con el modal completo',
+                 'Añadir y eliminar indicadores (panel Añadir Nuevo Indicador)',
+                 'Exportar e importar los datos del curso']),
+             ('No puedes (eso es del Admin)', [
+                 'Gestionar usuarios, contraseñas y perfiles',
+                 'Bloquear la edición de indicadores o añadidos',
+                 'Añadir o eliminar cursos ni copiar indicadores a otro curso',
+                 'Borrar de golpe los indicadores del curso'])),
+        ]},
+        ADMIN['chapters'][1],   # La pantalla principal
+        ADMIN['chapters'][2],   # Consultar el plan y filtrar
+        ADMIN['chapters'][3],   # Cambiar el estado de un indicador
+        ADMIN['chapters'][4],   # Editar un indicador completo
+        {'title': 'Exportar, importar y copias de seguridad', 'blocks': [
+            ('p', 'En Configuración (GESTIÓN) tienes **Exportar datos** e **Importar datos**: '
+                  'exportar descarga un archivo con todo el curso (indicadores y actuaciones con '
+                  'sus valores) que sirve de copia de seguridad o para llevarte el trabajo a otro '
+                  'momento; importar lo repone, con confirmación previa porque sobrescribe lo que '
+                  'hubiera. Los archivos exportados solo sirven para esta app.'),
+            ('callout', 'CONSEJO',
+             'Exporta antes de una sesión de edición larga o de una importación: es la manera más '
+             'rápida de volver atrás si algo sale mal. La base de datos en la nube guarda además '
+             'el último estado auto-guardado.'),
+        ]},
+    ],
+}
+
+
 if __name__ == '__main__':
     build(ADMIN, 'Tutorial_PlanDeMejora_Admin.pdf')
+    build(FOREVIN, 'Tutorial_PlanDeMejora_FOREVIN.pdf')
     build(USUARIO, 'Tutorial_PlanDeMejora_Usuario.pdf')
     print('PDFs regenerados')
