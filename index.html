@@ -113,31 +113,83 @@
             box-shadow: 0 4px 12px rgba(37, 99, 235, 0.1);
         }
 
-        /* ===== Header ===== */
+        /* ===== Header: una sola fila (título centrado, controles a los lados) ===== */
         header {
-            position: relative; padding: 1.25rem 1.5rem; text-align: center;
+            /* El subtítulo se calcula siempre en la misma proporción que el título */
+            --titulo-size: 1.6rem;
+            --sub-size: calc(var(--titulo-size) * 0.6);
+            position: relative;
+            padding: 0.5rem 1.25rem;
             background: var(--card-bg);
             border-bottom: 1px solid #e2e8f0;
             margin-bottom: 0.5rem;
             box-shadow: var(--section-shadow);
         }
+        .header-row {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            gap: 4px 14px;
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+        /* Zona izquierda: guardado manual y estado del guardado */
+        .header-acciones {
+            order: 1;
+            flex: 0 0 auto;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            min-width: 0;
+        }
+        /* Título y curso, centrados en el espacio libre */
+        .header-titulo {
+            order: 2;
+            flex: 1 1 260px;
+            min-width: 0;
+            text-align: center;
+        }
         header h1 {
-            font-size: 2rem; margin-bottom: 0.25rem;
+            font-size: var(--titulo-size);
+            line-height: 1.1;
+            margin: 0;
             background: var(--primary-gradient);
             -webkit-background-clip: text; -webkit-text-fill-color: transparent;
             background-clip: text;
             letter-spacing: -0.03em;
         }
-        #curso-subtitulo { margin-bottom: 0; color: var(--secondary-color); }
+        #curso-subtitulo {
+            margin: 0;
+            font-size: var(--sub-size);
+            line-height: 1.2;
+            color: var(--secondary-color);
+        }
+        /* Meta: versión y tutorial (empujados al borde derecho) */
+        .header-meta {
+            order: 3;
+            flex: 0 0 auto;
+            margin-left: auto;
+            display: flex;
+            align-items: center;
+            gap: 4px 10px;
+            min-width: 0;
+        }
+        /* Sesión: usuario activo y cierre */
         #auth-status {
-            position: static; transform: none;
-            display: flex; flex-direction: row; flex-wrap: wrap;
-            align-items: center; justify-content: flex-end;
-            gap: 8px; margin-top: 0.75rem;
+            order: 4;
+            flex: 0 0 auto;
+            /* Si cae a otra línea (nombre largo), queda pegado a la derecha */
+            margin-left: auto;
+            display: flex;
+            flex-direction: row;
+            flex-wrap: wrap;
+            align-items: center;
+            justify-content: flex-end;
+            gap: 4px 10px;
+            min-width: 0;
         }
-        @media (min-width: 769px) {
-            header { position: relative; text-align: left; padding: 1rem 1.5rem; }
-        }
+        #tutorial-pdf-link, #save-status { white-space: nowrap; }
+        #user-info-badge { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
         /* ===== Welcome screen ===== */
         .welcome-screen {
@@ -718,12 +770,24 @@
             letter-spacing: -0.01em;
         }
 
+        /* ===== Cabecera en dos líneas hasta 1200 px: con todos los controles
+           y el título no cabe en una sola fila ===== */
+        @media (max-width: 1199.98px) {
+            header { --titulo-size: 1.55rem; }
+            .header-titulo { order: 1; flex: 1 1 100%; }
+            .header-acciones { order: 2; }
+            .header-meta { order: 3; margin-left: auto; }
+            /* Ocupa el espacio libre de su línea y alinea a la derecha cuando
+               baja a una segunda fila */
+            #auth-status { order: 4; flex: 1 1 auto; margin-left: 0; }
+        }
+
         /* ============================== */
         /* ===== RESPONSIVE: TABLETS ===== */
         /* ============================== */
         @media (max-width: 991.98px) {
             .app-container { padding: 10px 15px; }
-            header h1 { font-size: 1.75rem; }
+            header { --titulo-size: 1.5rem; }
             .area-title { font-size: 1.35rem; }
             .propuesta-card { padding: 15px; }
             .modal-lg .modal-dialog { max-width: 90%; }
@@ -734,14 +798,18 @@
         /* ============================== */
         @media (max-width: 767.98px) {
             /* Header */
-            header { padding: 0.75rem 0.5rem; text-align: center; }
-            header h1 { font-size: 1.5rem; }
-            #curso-subtitulo { font-size: 1rem !important; }
-            #auth-status {
-                position: static; transform: none;
-                flex-direction: row; flex-wrap: wrap;
-                justify-content: flex-end; margin-top: 0.5rem;
-            }
+            header { padding: 0.45rem 0.75rem; --titulo-size: 1.3rem; }
+            .header-row { gap: 4px 8px; }
+            .header-titulo { order: 1; flex: 1 1 100%; }
+            .header-acciones { order: 2; flex: 0 1 auto; min-width: 0; }
+            .header-meta { order: 3; flex: 0 1 auto; min-width: 0; margin-left: auto; }
+            /* La sesión se va al borde derecho y, si no cabe, baja a su línea */
+            #auth-status { order: 4; flex: 0 1 auto; min-width: 0; margin-left: auto; }
+            #user-info-badge { min-width: 0; max-width: 10rem; }
+            #save-status, #tutorial-pdf-link { font-size: 0.75rem; }
+            /* Un mensaje largo («Sin conexión: cambios pendientes») se recorta
+               con puntos suspensivos en vez de desbordar la fila */
+            #save-status { max-width: 7rem; overflow: hidden; text-overflow: ellipsis; }
             .welcome-screen h1 { font-size: 2rem; }
             .welcome-screen h2 { font-size: 1.5rem; }
             .welcome-screen p { font-size: 1rem; }
@@ -804,8 +872,8 @@
         /* ===== RESPONSIVE: XS ====== ==== */
         /* ============================== */
         @media (max-width: 399.98px) {
-            header h1 { font-size: 1.25rem; }
-            #curso-subtitulo { font-size: 0.9rem !important; }
+            header { --titulo-size: 1.12rem; }
+            .header-acciones .btn, #auth-status .btn { font-size: 0.75rem; padding: 4px 8px; }
             .welcome-screen h1 { font-size: 1.6rem; }
             .welcome-screen h2 { font-size: 1.2rem; }
             .area-title { font-size: 1.05rem; }
@@ -822,6 +890,11 @@
             .indicadores-toggle, .factor-title {
                 min-height: 44px; display: flex; align-items: center;
             }
+            /* Campos y casillas más cómodos al tacto */
+            .form-control, .form-select { min-height: 44px; }
+            .form-check-input { width: 1.35em; height: 1.35em; }
+            /* Sin el retardo de 300 ms en los toques */
+            button, a, label, .form-check-input { touch-action: manipulation; }
         }
 
         /* ===== Safe area insets (notch phones) ===== */
@@ -829,6 +902,44 @@
             .offline-indicator { padding-top: calc(8px + env(safe-area-inset-top)); }
             .back-to-top { bottom: calc(24px + env(safe-area-inset-bottom)); }
             .install-prompt { bottom: calc(10px + env(safe-area-inset-bottom)); }
+        }
+        /* Insets horizontales (móvil en horizontal con notch) */
+        @supports (padding: env(safe-area-inset-left)) {
+            header {
+                padding-left: max(1.25rem, env(safe-area-inset-left));
+                padding-right: max(1.25rem, env(safe-area-inset-right));
+            }
+            @media (max-width: 767.98px) {
+                header {
+                    padding-left: max(0.75rem, env(safe-area-inset-left));
+                    padding-right: max(0.75rem, env(safe-area-inset-right));
+                }
+            }
+            .app-container {
+                padding-left: max(0.5rem, env(safe-area-inset-left));
+                padding-right: max(0.5rem, env(safe-area-inset-right));
+            }
+        }
+
+        /* ===== iOS: evita el zoom automático al enfocar campos (<16 px) ===== */
+        @media (max-width: 991.98px) {
+            input, select, textarea, .form-control, .form-select { font-size: 16px; }
+        }
+
+        /* ===== Móvil en horizontal: cabecera compacta en una sola fila ===== */
+        @media (max-height: 500px) and (orientation: landscape) {
+            header { --titulo-size: 1.15rem; padding-top: 0.35rem; padding-bottom: 0.35rem; }
+            .header-titulo { order: 2; flex: 1 1 auto; }
+        }
+
+        /* ===== Accesibilidad: respeta «reducir movimiento» ===== */
+        @media (prefers-reduced-motion: reduce) {
+            *, *::before, *::after {
+                animation-duration: 0.01ms !important;
+                animation-iteration-count: 1 !important;
+                transition-duration: 0.01ms !important;
+                scroll-behavior: auto !important;
+            }
         }
 
         /* ===== Bloques del Plan de Mejora 26-27 ===== */
@@ -908,16 +1019,31 @@
 
     <!-- Aplicación principal -->
     <div class="app-container container" id="appContainer">
-        <header class="text-center mb-5">
-            <h1 class="display-4 fw-bold text-primary">PLAN DE MEJORA V2026</h1>
-            <p class="lead fw-bold fs-4" id="curso-subtitulo">Curso 2026-2027</p>
-            <span id="version-chip" class="badge bg-secondary font-monospace hidden" title="Versión de la app, leída del service worker"></span>
-            <a id="tutorial-pdf-link" href="#" download="" class="small text-muted text-decoration-none ms-2" style="opacity: 0.55; transition: opacity 0.2s; display: inline-block;" onmouseenter="this.style.opacity='0.85'" onmouseleave="this.style.opacity='0.55'" title="Descargar el tutorial de tu perfil en PDF">📄 Tutorial en PDF</a>
-            <div id="auth-status">
-                <button id="btn-guardar-manual" class="btn btn-sm btn-outline-warning hidden" title="Guardar ahora">💾 Guardar</button>
-                <span id="save-status" class="small text-muted hidden"></span>
-                <span id="user-info-badge" class="badge bg-success font-monospace px-3 py-2 fw-normal hidden"></span>
-                <button id="btn-logout" class="btn btn-sm btn-outline-secondary hidden">Cerrar sesión</button>
+        <header class="mb-3">
+            <div class="header-row">
+                <!-- Zona izquierda: guardado manual (solo Admin) -->
+                <div class="header-acciones">
+                    <button id="btn-guardar-manual" class="btn btn-sm btn-outline-warning hidden" title="Guardar ahora">💾 Guardar</button>
+                    <span id="save-status" class="small text-muted hidden"></span>
+                </div>
+
+                <!-- Título y curso -->
+                <div class="header-titulo">
+                    <h1 class="fw-bold text-primary">PLAN DE MEJORA V2026</h1>
+                    <p class="fw-bold" id="curso-subtitulo">Curso 2026-2027</p>
+                </div>
+
+                <!-- Meta: versión y tutorial -->
+                <div class="header-meta">
+                    <span id="version-chip" class="badge bg-secondary font-monospace hidden" title="Versión de la app, leída del service worker"></span>
+                    <a id="tutorial-pdf-link" href="#" download="" class="small text-muted text-decoration-none" style="opacity: 0.55; transition: opacity 0.2s; display: inline-block;" onmouseenter="this.style.opacity='0.85'" onmouseleave="this.style.opacity='0.55'" title="Descargar el tutorial de tu perfil en PDF">📄 Tutorial en PDF</a>
+                </div>
+
+                <!-- Sesión: usuario activo y cierre -->
+                <div id="auth-status">
+                    <span id="user-info-badge" class="badge bg-success font-monospace fw-normal hidden"></span>
+                    <button id="btn-logout" class="btn btn-sm btn-outline-secondary hidden">Cerrar sesión</button>
+                </div>
             </div>
         </header>
 
@@ -2400,6 +2526,9 @@
                 if (currentUser && currentUser.username === editedUsername) {
                     currentUser.displayName = displayName;
                     currentUser.role = role;
+                    // La sesión guardada debe reflejar el rol nuevo: si no, al
+                    // recargar se recuperaría el rol anterior
+                    sessionStorage.setItem('plan_mejora_user', JSON.stringify(currentUser));
                     // La interfaz (paneles y botones) se reajusta al nuevo rol
                     mostrarApp();
                     // Y las fichas: si deja de editar, desaparecen sus botones
@@ -2906,6 +3035,10 @@
 
         function llenarSelectNuevaPropuesta() {
             const npArea = document.getElementById('np-area');
+            // Se conserva el ámbito elegido: esta función se llama en cada
+            // refresco remoto y borraba la selección a quien estaba a mitad de
+            // dar de alta un indicador
+            const areaElegida = npArea.value;
             // Limpiar opciones existentes (excepto placeholder)
             npArea.innerHTML = '<option value="">-- Seleccionar ámbito --</option>';
             areasData.forEach(area => {
@@ -2914,6 +3047,7 @@
                 opt.textContent = area.id + '. ' + area.nombre;
                 npArea.appendChild(opt);
             });
+            npArea.value = areaElegida;
         }
 
         /* =====================================================================
@@ -3684,6 +3818,10 @@
                 setTimeout(() => { guardadoReciente = false; }, 2000);
             } catch (error) {
                 console.error('Error guardando estados en Firestore:', error);
+                // Un guardado fallido deja cambios pendientes en memoria: se
+                // marca para que el cierre de sesión avise y para que el
+                // reintento al recuperar la conexión los persista.
+                ultimaMutacionTs = Math.max(ultimaMutacionTs, Date.now());
                 // Sin conexión el auto-guardado reintenta cada 3 minutos: no se
                 // interrumpe al usuario con un alert en cada intento; se avisa
                 // en el indicador de estado y se conserva lo editado en memoria.
@@ -3915,12 +4053,12 @@
             if (!db) return;
 
             unsubscribeCursos = db.collection('pdm26_data').doc('cursos').onSnapshot(function(doc) {
-                if (guardadoReciente) return;
+                // Sin filtro de «guardado reciente»: ese indicador pertenece al
+                // documento de estados y silenciaba cambios de cursos ajenos
                 if (!doc.exists) return;
                 const data = doc.data();
                 if (!data.lista) return;
 
-                const prevCurso = cursoActual;
                 cursosDisponibles = data.lista;
                 const nuevoSeleccionado = data.seleccionado || cursosDisponibles[0];
 
@@ -3960,7 +4098,8 @@
             if (!db) return;
 
             unsubscribeResponsables = db.collection('pdm26_data').doc('responsables').onSnapshot(function(doc) {
-                if (guardadoReciente) return;
+                // Sin filtro de «guardado reciente»: no debe silenciar cambios
+                // en la lista de responsables hechos por otros usuarios
                 if (doc.exists && doc.data().lista) {
                     window.listaResponsablesGlobal = doc.data().lista;
                 } else {
@@ -4034,7 +4173,8 @@
             if (!db) return;
 
             unsubscribeBloqueos = db.collection('pdm26_data').doc('bloqueos_' + cursoActual.replace('-', '_')).onSnapshot(function(doc) {
-                if (guardadoReciente) return;
+                // Sin filtro de «guardado reciente»: los bloqueos son otro
+                // documento y sus cambios deben aplicarse siempre
                 if (!doc.exists) return;
                 const data = doc.data();
                 bloqueoEdicionAlcance = data.edicionAlcance || 'ninguno';
@@ -4258,7 +4398,7 @@
                 if (indicador.logro) {
                     const logroP = document.createElement('p');
                     logroP.className = 'actuacion-campo';
-                    const logroTxt = indicador.logro === 'si' ? 'Sí' : indicador.logro === 'no' ? 'No' : 'Parcial';
+                    const logroTxt = NOMBRES_LOGRO[indicador.logro] || indicador.logro;
                     logroP.textContent = 'Logro: ' + logroTxt;
                     indicadorElement.appendChild(logroP);
                 }
