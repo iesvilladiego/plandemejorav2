@@ -139,7 +139,7 @@
         #auth-status {
             position: static; transform: none;
             display: flex; flex-direction: row; flex-wrap: wrap;
-            align-items: center; justify-content: center;
+            align-items: center; justify-content: flex-end;
             gap: 8px; margin-top: 0.75rem;
         }
         @media (min-width: 769px) {
@@ -747,7 +747,7 @@
             #auth-status {
                 position: static; transform: none;
                 flex-direction: row; flex-wrap: wrap;
-                justify-content: center; margin-top: 0.5rem;
+                justify-content: flex-end; margin-top: 0.5rem;
             }
             .welcome-screen h1 { font-size: 2rem; }
             .welcome-screen h2 { font-size: 1.5rem; }
@@ -918,14 +918,13 @@
         <header class="text-center mb-5">
             <h1 class="display-4 fw-bold text-primary">PLAN DE MEJORA V2026</h1>
             <p class="lead fw-bold fs-4" id="curso-subtitulo">Curso 2026-2027</p>
-            <p class="small text-muted mb-0" id="version-text"></p>
-            <a id="tutorial-pdf-link" href="#" download="" class="small text-muted text-decoration-none" style="opacity: 0.55; transition: opacity 0.2s; display: inline-block;" onmouseenter="this.style.opacity='0.85'" onmouseleave="this.style.opacity='0.55'" title="Descargar tutorial en PDF">📄 Tutorial en PDF</a>
+            <span id="version-chip" class="badge bg-secondary font-monospace hidden" title="Versión de la app, leída del service worker"></span>
+            <a id="tutorial-pdf-link" href="#" download="" class="small text-muted text-decoration-none ms-2" style="opacity: 0.55; transition: opacity 0.2s; display: inline-block;" onmouseenter="this.style.opacity='0.85'" onmouseleave="this.style.opacity='0.55'" title="Descargar el tutorial de tu perfil en PDF">📄 Tutorial en PDF</a>
             <div id="auth-status">
-                <span id="user-info-badge" class="badge bg-success font-monospace px-3 py-2 fw-normal hidden"></span>
                 <button id="btn-guardar-manual" class="btn btn-sm btn-outline-warning hidden" title="Guardar ahora">💾 Guardar</button>
                 <span id="save-status" class="small text-muted hidden"></span>
+                <span id="user-info-badge" class="badge bg-success font-monospace px-3 py-2 fw-normal hidden"></span>
                 <button id="btn-logout" class="btn btn-sm btn-outline-secondary hidden">Cerrar sesión</button>
-                <span id="version-chip" class="badge bg-secondary font-monospace hidden" title="Versión de la app, leída del service worker"></span>
             </div>
         </header>
 
@@ -1077,9 +1076,9 @@
                                         <div class="row g-2 mb-3">
                                             <div class="col-sm-10">
                                                 <select id="new-user-role" class="form-select form-select-sm">
-                                                    <option value="viewer">Solo Lectura</option>
-                                                    <option value="user">Usuario</option>
-                                                    <option value="admin">Admin</option>
+                                                    <option value="Usuario">Usuario (solo lectura)</option>
+                                                    <option value="FOREVIN">FOREVIN (edita el plan)</option>
+                                                    <option value="Admin">Admin (administración completa)</option>
                                                 </select>
                                             </div>
                                             <div class="col-sm-2">
@@ -1436,9 +1435,9 @@
                     <div class="mb-3">
                         <label class="form-label fw-bold">Rol</label>
                         <select id="edit-user-role" class="form-select form-select-sm">
-                            <option value="viewer">Solo Lectura</option>
-                            <option value="user">Usuario</option>
-                            <option value="admin">Admin</option>
+                            <option value="Usuario">Usuario (solo lectura)</option>
+                            <option value="FOREVIN">FOREVIN (edita el plan)</option>
+                            <option value="Admin">Admin (administración completa)</option>
                         </select>
                     </div>
                     <div id="edit-user-msg" class="small fw-bold"></div>
@@ -1876,12 +1875,12 @@
         // Funciones helper para saber si el usuario actual está afectado por el bloqueo
         function edicionBloqueadaParaUsuario() {
             if (bloqueoEdicionAlcance === 'todos') return true;
-            if (bloqueoEdicionAlcance === 'usuarios' && currentUser && currentUser.role !== 'admin') return true;
+            if (bloqueoEdicionAlcance === 'usuarios' && currentUser && currentUser.role !== 'Admin') return true;
             return false;
         }
         function adicionBloqueadaParaUsuario() {
             if (bloqueoAdicionAlcance === 'todos') return true;
-            if (bloqueoAdicionAlcance === 'usuarios' && currentUser && currentUser.role !== 'admin') return true;
+            if (bloqueoAdicionAlcance === 'usuarios' && currentUser && currentUser.role !== 'Admin') return true;
             return false;
         }
 
@@ -1922,7 +1921,11 @@
                 if (origen.empty) return;
                 const batch = db.batch();
                 origen.forEach(function (doc) {
-                    batch.set(db.collection('pdm26_users').doc(doc.id), doc.data());
+                    const datos = doc.data();
+                    // Roles antiguos (viewer/user/admin) → perfiles actuales
+                    const rolLegacy = { viewer: 'Usuario', user: 'FOREVIN', admin: 'Admin' };
+                    if (datos.role && rolLegacy[datos.role]) datos.role = rolLegacy[datos.role];
+                    batch.set(db.collection('pdm26_users').doc(doc.id), datos);
                 });
                 await batch.commit();
                 console.log('Migración de usuarios: ' + origen.size + ' copiados de pmv_users a pdm26_users');
@@ -2009,28 +2012,32 @@
             document.getElementById('login-overlay').classList.add('hidden');
             document.getElementById('appContainer').classList.add('visible');
             document.getElementById('welcomeScreen').classList.add('hidden');
-            let roleText = 'Usuario';
-            if (currentUser.role === 'admin') roleText = 'Admin';
-            else if (currentUser.role === 'viewer') roleText = 'Solo Lectura';
-            document.getElementById('user-info-badge').textContent = roleText + ': ' + currentUser.displayName;
+            // Perfiles antiguos (viewer/user/admin) → actuales (Usuario/FOREVIN/Admin):
+            // por si la sesión se inició antes del cambio o el documento aún no está migrado.
+            const rolLegacy = { viewer: 'Usuario', user: 'FOREVIN', admin: 'Admin' };
+            if (rolLegacy[currentUser.role]) {
+                currentUser.role = rolLegacy[currentUser.role];
+                sessionStorage.setItem('plan_mejora_user', JSON.stringify(currentUser));
+            }
+            document.getElementById('user-info-badge').textContent = currentUser.role + ': ' + currentUser.displayName;
             document.getElementById('user-info-badge').classList.remove('hidden');
             refrescarBloqueoEliminar(); // estado inicial del botón Eliminar
             document.getElementById('btn-logout').classList.remove('hidden');
 
-            const esSoloLectura = currentUser.role === 'viewer';
+            const esPerfilUsuario = currentUser.role === 'Usuario';
 
             // Actualizar enlace del tutorial segun el perfil del usuario
             const tutorialLink = document.getElementById('tutorial-pdf-link');
             const tutorialesMap = {
-                'admin': { url: './Tutorial_PlanDeMejora_Admin.pdf', nombre: 'Tutorial_PlanDeMejora_Admin.pdf' },
-                'user': { url: './Tutorial_PlanDeMejora_Usuario.pdf', nombre: 'Tutorial_PlanDeMejora_Usuario.pdf' },
-                'viewer': { url: './Tutorial_PlanDeMejora_SoloLectura.pdf', nombre: 'Tutorial_PlanDeMejora_SoloLectura.pdf' }
+                'Admin': { url: './Tutorial_PlanDeMejora_Admin.pdf', nombre: 'Tutorial_PlanDeMejora_Admin.pdf' },
+                'FOREVIN': { url: './Tutorial_PlanDeMejora_FOREVIN.pdf', nombre: 'Tutorial_PlanDeMejora_FOREVIN.pdf' },
+                'Usuario': { url: './Tutorial_PlanDeMejora_Usuario.pdf', nombre: 'Tutorial_PlanDeMejora_Usuario.pdf' }
             };
-            const tutorial = tutorialesMap[currentUser.role] || tutorialesMap['user'];
+            const tutorial = tutorialesMap[currentUser.role] || tutorialesMap['Usuario'];
             tutorialLink.href = tutorial.url;
             tutorialLink.setAttribute('download', tutorial.nombre);
 
-            if (currentUser.role === 'admin') {
+            if (currentUser.role === 'Admin') {
                 document.getElementById('user-management-section').classList.remove('hidden');
                 document.getElementById('bloqueo-edicion-section').classList.remove('hidden');
                 document.getElementById('btn-anadir-curso').classList.remove('hidden');
@@ -2042,7 +2049,7 @@
                 document.getElementById('btnExportar').classList.remove('hidden');
                 document.getElementById('btnImportar').classList.remove('hidden');
                 cargarListaUsuarios();
-            } else if (esSoloLectura) {
+            } else if (esPerfilUsuario) {
                 document.getElementById('user-management-section').classList.add('hidden');
                 document.getElementById('bloqueo-edicion-section').classList.add('hidden');
                 document.getElementById('btn-anadir-curso').classList.add('hidden');
@@ -2098,11 +2105,11 @@
                         username: username,
                         passwordHash: passwordHash,
                         displayName: displayName,
-                        role: 'admin',
+                        role: 'Admin',
                         createdAt: firebase.firestore.FieldValue.serverTimestamp()
                     });
 
-                    currentUser = { username, displayName, role: 'admin' };
+                    currentUser = { username, displayName, role: 'Admin' };
                     sessionStorage.setItem('plan_mejora_user', JSON.stringify(currentUser));
 
                     await inicializarAplicacion();
@@ -2155,7 +2162,7 @@
         }
 
         async function cargarListaUsuarios() {
-            if (!db || !currentUser || currentUser.role !== 'admin') return;
+            if (!db || !currentUser || currentUser.role !== 'Admin') return;
             try {
                 const snapshot = await db.collection('pdm26_users').orderBy('createdAt', 'asc').get();
                 const listEl = document.getElementById('list-users');
@@ -2170,9 +2177,9 @@
                     const user = doc.data();
                     const li = document.createElement('li');
                     li.className = 'list-group-item d-flex justify-content-between align-items-center bg-light small';
-                    let roleBadge = '<span class="badge bg-info">Usuario</span>';
-                    if (user.role === 'admin') roleBadge = '<span class="badge bg-danger">Admin</span>';
-                    else if (user.role === 'viewer') roleBadge = '<span class="badge bg-secondary">Solo Lectura</span>';
+                    let roleBadge = '<span class="badge bg-info">FOREVIN</span>';
+                    if (user.role === 'Admin') roleBadge = '<span class="badge bg-danger">Admin</span>';
+                    else if (user.role === 'Usuario') roleBadge = '<span class="badge bg-secondary">Usuario</span>';
                     const isCurrentUser = currentUser.username === user.username;
                     li.innerHTML = `
                         <div class="d-flex align-items-center gap-2">
@@ -2272,7 +2279,7 @@
                 document.getElementById('new-user-displayname').value = '';
                 document.getElementById('new-user-password').value = '';
                 document.getElementById('new-user-password-confirm').value = '';
-                document.getElementById('new-user-role').value = 'user';
+                document.getElementById('new-user-role').value = 'FOREVIN';
 
                 msgEl.textContent = 'Usuario "' + displayName + '" creado correctamente.';
                 msgEl.className = 'small fw-bold text-success mt-2';
@@ -3810,7 +3817,7 @@
         // ============================================================
 
         async function guardarBloqueos() {
-            if (!db || !currentUser || currentUser.role !== 'admin') return;
+            if (!db || !currentUser || currentUser.role !== 'Admin') return;
             try {
                 await db.collection('pdm26_data').doc('bloqueos_' + cursoActual.replace('-', '_')).set({
                     edicionAlcance: bloqueoEdicionAlcance,
@@ -4070,7 +4077,7 @@
                 estadoLabelSpan.textContent = 'Estado:';
                 estadoContainer.appendChild(estadoLabelSpan);
 
-                const isViewer = currentUser && currentUser.role === 'viewer';
+                const isViewer = currentUser && currentUser.role === 'Usuario';
 
                 estadosInd.forEach(estado => {
                     const estadoDiv = document.createElement('div');
@@ -4142,7 +4149,7 @@
                 input.id = `estado-${propuesta.id}-${estado.valor}`;
                 input.value = estado.valor;
                 input.checked = propuesta.estado === estado.valor;
-                if (currentUser && currentUser.role === 'viewer') {
+                if (currentUser && currentUser.role === 'Usuario') {
                     input.disabled = true;
                 }
 
@@ -4218,7 +4225,7 @@
             const btnGroup = document.createElement('div');
             btnGroup.className = 'd-flex gap-1 align-items-center';
 
-            if (!currentUser || currentUser.role !== 'viewer') {
+            if (!currentUser || currentUser.role !== 'Usuario') {
                 const btnEditar = document.createElement('button');
                 btnEditar.className = 'btn btn-sm btn-outline-primary';
                 if (estaBloqueada) {
@@ -4252,7 +4259,7 @@
                 btnGroup.appendChild(btnEliminar);
 
                 // Botón de bloqueo individual (solo admin, no visible si el bloqueo afecta al propio admin)
-                if (currentUser.role === 'admin' && bloqueoEdicionAlcance !== 'todos') {
+                if (currentUser.role === 'Admin' && bloqueoEdicionAlcance !== 'todos') {
                     const btnLock = document.createElement('button');
                     btnLock.className = 'btn btn-sm btn-outline-secondary btn-lock-individual';
                     btnLock.title = propuestasBloqueadas[propuesta.id] ? 'Desbloquear indicador' : 'Bloquear indicador';
