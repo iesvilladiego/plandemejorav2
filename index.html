@@ -18,8 +18,6 @@
     
     <!-- Windows Meta Tags -->
     <meta name="msapplication-TileColor" content="#0d6efd">
-    <meta name="msapplication-TileImage" content="/icons/ms-icon-144x144.png">
-    <meta name="msapplication-config" content="/browserconfig.xml">
     
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
@@ -37,11 +35,6 @@
     <link rel="icon" type="image/png" sizes="32x32" href="icons/favicon-32x32.png">
     <link rel="icon" type="image/png" sizes="16x16" href="icons/favicon-16x16.png">
     <link rel="apple-touch-icon" sizes="180x180" href="icons/apple-touch-icon.png">
-    <link rel="manifest" href="manifest.json">
-    <meta name="apple-mobile-web-app-capable" content="yes">
-    <meta name="apple-mobile-web-app-status-bar-style" content="default">
-    <meta name="apple-mobile-web-app-title" content="Plan de Mejora">
-    <link rel="mask-icon" href="icons/safari-pinned-tab.svg" color="#0d6efd">
 
     <style>
         .hidden { display: none !important; }
@@ -2081,11 +2074,15 @@
                 document.getElementById('btnExportar').classList.add('hidden');
                 document.getElementById('btnImportar').classList.add('hidden');
             } else {
+                // FOREVIN: edición del plan, pero sin las herramientas de
+                // administración. El botón Guardar es exclusivo del Admin
+                // (lo indican los tres tutoriales) y aquí faltaba ocultarlo.
                 document.getElementById('bloqueo-edicion-section').classList.add('hidden');
                 document.getElementById('btn-anadir-curso').classList.add('hidden');
                 document.getElementById('btn-eliminar-curso').classList.add('hidden');
                 document.getElementById('btn-borrar-propuestas').classList.add('hidden');
                 document.getElementById('btnCopiarPropuestas').classList.add('hidden');
+                document.getElementById('btn-guardar-manual').classList.add('hidden');
                 document.getElementById('nuevaPropuestaSection').classList.remove('hidden');
             }
         }
@@ -2184,7 +2181,10 @@
         async function cargarListaUsuarios() {
             if (!db || !currentUser || currentUser.role !== 'Admin') return;
             try {
-                const snapshot = await db.collection('pdm26_users').orderBy('createdAt', 'asc').get();
+                // Sin orderBy en el servidor: los usuarios migrados de la app
+                // anterior pueden carecer de createdAt y quedarían ocultos.
+                // Se ordena en el cliente (createdAt y, a igualdad, usuario).
+                const snapshot = await db.collection('pdm26_users').get();
                 const listEl = document.getElementById('list-users');
                 listEl.innerHTML = '';
 
@@ -2193,7 +2193,15 @@
                     return;
                 }
 
-                snapshot.forEach(doc => {
+                const docsOrdenados = snapshot.docs.slice().sort((a, b) => {
+                    const da = a.data(), dbb = b.data();
+                    const ta = (da.createdAt && da.createdAt.seconds) || 0;
+                    const tb = (dbb.createdAt && dbb.createdAt.seconds) || 0;
+                    if (ta !== tb) return ta - tb;
+                    return String(da.username || '').localeCompare(String(dbb.username || ''), 'es');
+                });
+
+                docsOrdenados.forEach(doc => {
                     const user = doc.data();
                     const li = document.createElement('li');
                     li.className = 'list-group-item d-flex justify-content-between align-items-center bg-light small';
@@ -2203,13 +2211,13 @@
                     const isCurrentUser = currentUser.username === user.username;
                     li.innerHTML = `
                         <div class="d-flex align-items-center gap-2">
-                            <span class="fw-bold">${user.displayName}</span>
-                            <span class="text-muted">(@${user.username})</span>
+                            <span class="fw-bold">${escapeHtml(user.displayName)}</span>
+                            <span class="text-muted">(@${escapeHtml(user.username)})</span>
                             ${roleBadge}
                             ${isCurrentUser ? '<span class="badge bg-success">Tú</span>' : ''}
                         </div>
                         <div class="d-flex gap-1 align-items-center">
-                            <button class="btn btn-link p-0 text-primary btn-edit-user" data-doc-id="${doc.id}" data-username="${user.username}" data-displayname="${user.displayName}" data-role="${user.role}" title="Editar usuario"><svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" fill="currentColor" viewBox="0 0 16 16"><path d="M15.502 1.94a.5.5 0 0 1 0 .706L14.459 3.69l-2-2L13.502.646a.5.5 0 0 1 .707 0l1.293 1.293zm-1.75 2.456-2-2L4.939 9.21a.5.5 0 0 0-.121.196l-.805 2.414a.25.25 0 0 0 .316.316l2.414-.805a.5.5 0 0 0 .196-.12l6.813-6.814z"/><path fill-rule="evenodd" d="M1 13.5A1.5 1.5 0 0 0 2.5 15h11a1.5 1.5 0 0 0 1.5-1.5v-6a.5.5 0 0 0-1 0v6a.5.5 0 0 1-.5.5h-11a.5.5 0 0 1-.5-.5v-11a.5.5 0 0 1 .5-.5H9a.5.5 0 0 0 0-1H2.5A1.5 1.5 0 0 0 1 2.5v11z"/></svg> Editar</button>
+                            <button class="btn btn-link p-0 text-primary btn-edit-user" data-doc-id="${doc.id}" data-username="${escapeHtml(user.username)}" data-displayname="${escapeHtml(user.displayName)}" data-role="${escapeHtml(user.role)}" title="Editar usuario"><svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" fill="currentColor" viewBox="0 0 16 16"><path d="M15.502 1.94a.5.5 0 0 1 0 .706L14.459 3.69l-2-2L13.502.646a.5.5 0 0 1 .707 0l1.293 1.293zm-1.75 2.456-2-2L4.939 9.21a.5.5 0 0 0-.121.196l-.805 2.414a.25.25 0 0 0 .316.316l2.414-.805a.5.5 0 0 0 .196-.12l6.813-6.814z"/><path fill-rule="evenodd" d="M1 13.5A1.5 1.5 0 0 0 2.5 15h11a1.5 1.5 0 0 0 1.5-1.5v-6a.5.5 0 0 0-1 0v6a.5.5 0 0 1-.5.5h-11a.5.5 0 0 1-.5-.5v-11a.5.5 0 0 1 .5-.5H9a.5.5 0 0 0 0-1H2.5A1.5 1.5 0 0 0 1 2.5v11z"/></svg> Editar</button>
                             ${!isCurrentUser ? `<button class="btn btn-link p-0 text-danger btn-delete-user" data-doc-id="${doc.id}" title="Eliminar usuario"><svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" fill="currentColor" viewBox="0 0 16 16"><path d="M5.5 5.5A.5.5 0 0 1 6 6v6a.5.5 0 0 1-1 0V6a.5.5 0 0 1 .5-.5zm2.5 0a.5.5 0 0 1 .5.5v6a.5.5 0 0 1-1 0V6a.5.5 0 0 1 .5-.5zm3 .5a.5.5 0 0 0-1 0v6a.5.5 0 0 0 1 0V6z"/><path fill-rule="evenodd" d="M14.5 3a1 1 0 0 1-1 1H13v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V4h-.5a1 1 0 0 1-1-1V2a1 1 0 0 1 1-1H5.5l1-1h3l1 1h2.5a1 1 0 0 1 1 1v1zM4.118 4 4 4.059V13a1 1 0 0 0 1 1h6a1 1 0 0 0 1-1V4.059L11.882 4H4.118zM2.5 3V2h11v1h-11z"/></svg> Eliminar</button>` : ''}
                         </div>
                     `;
@@ -2597,9 +2605,15 @@
             }
             cursosDisponibles.push(newCurso);
             await guardarCursos();
+            // El selector sigue en el curso actual (el que la app está
+            // mostrando): el curso nuevo se elige desde la lista cuando se
+            // quiera trabajar en él. Antes se forzaba el selector al curso
+            // nuevo y quedaba desincronizado con los datos en pantalla hasta
+            // recargar.
             actualizarSelectCursos();
-            document.getElementById('sel-curso').value = newCurso;
             refrescarBloqueoEliminar();
+            const msgCurso = document.getElementById('curso-msg');
+            if (msgCurso) msgCurso.textContent = 'Añadido el curso ' + newCurso + '. Selecciónalo en la lista para trabajar en él.';
         }
 
         async function eliminarCurso(curso) {
@@ -2640,10 +2654,19 @@
                 resetAreasData(cursoActual);
                 document.getElementById('curso-subtitulo').textContent = 'Curso ' + cursoActual;
                 await cargarEstados();
+                await cargarBloqueos();
                 llenarFiltroAreas();
                 llenarFiltroFactores();
                 llenarFiltroResponsables();
+                llenarSelectNuevaPropuesta();
+                renderListaResponsablesAdmin();
                 actualizarVista();
+                actualizarVisibilidadBtnBorrar();
+                // Reconectar los listeners al curso al que se ha pasado: sin
+                // esto, la app dejaba de recibir cambios remotos del nuevo
+                // curso hasta que se cambiara de curso manualmente
+                escucharCambiosEstados();
+                escucharCambiosBloqueos();
             }
             await guardarCursos();
             actualizarSelectCursos();
@@ -2759,6 +2782,9 @@
             }
             const msg = 'Vas a eliminar TODAS las propuestas del curso ' + cursoActual + ' (' + totalPropuestas + ' propuesta(s)).\n\nEsta acción no se puede deshacer. Las propuestas se eliminarán de la base de datos.\n\n¿Continuar?';
             if (!confirm(msg)) return;
+            // Segunda confirmación (la acción más destructiva de la app, así
+            // documentada en el tutorial del Admin)
+            if (!confirm('Última oportunidad: ¿borrar TODOS los indicadores del curso ' + cursoActual + '?\n\nEsta acción es irreversible.')) return;
 
             try {
                 const docId = 'estados_' + cursoActual.replace('-', '_');
@@ -2819,6 +2845,8 @@
                 registrarEventListeners();
                 appInitialized = true;
             }
+            // Auto-guardado: (re)arrancado en cada inicio de sesión
+            iniciarAutoGuardado();
         }
 
         function llenarSelectNuevaPropuesta() {
@@ -3053,7 +3081,7 @@
                 const badge = document.createElement('span');
                 badge.className = 'badge bg-secondary d-flex align-items-center gap-1';
                 badge.dataset.resp = resp;
-                badge.innerHTML = `${resp} <button type="button" class="btn-close btn-close-white" style="font-size:0.6rem" title="Quitar"></button>`;
+                badge.innerHTML = `${escapeHtml(resp)} <button type="button" class="btn-close btn-close-white" style="font-size:0.6rem" title="Quitar"></button>`;
                 badge.querySelector('.btn-close').addEventListener('click', function() {
                     badge.remove();
                     const current = JSON.parse(listEl.dataset.resps);
@@ -3137,7 +3165,7 @@
                 const badge = document.createElement('span');
                 badge.className = 'badge bg-secondary d-flex align-items-center gap-1';
                 badge.dataset.resp = resp;
-                badge.innerHTML = `${resp} <button type="button" class="btn-close btn-close-white" style="font-size:0.6rem" title="Quitar"></button>`;
+                badge.innerHTML = `${escapeHtml(resp)} <button type="button" class="btn-close btn-close-white" style="font-size:0.6rem" title="Quitar"></button>`;
                 badge.querySelector('.btn-close').addEventListener('click', function() {
                     badge.remove();
                     updateNpRespsData();
@@ -3171,11 +3199,11 @@
                 div.innerHTML = `
                     <span class="badge bg-primary mt-1">${idx}</span>
                     <div class="flex-grow-1">
-                        <input type="text" class="form-control form-control-sm mb-1 np-ind-desc-input" value="${desc.replace(/"/g, '&quot;')}" placeholder="Descripción de la actuación">
-                        <input type="text" class="form-control form-control-sm mb-1 np-ind-temp-input" value="${temp.replace(/"/g, '&quot;')}" placeholder="Temporalización">
+                        <input type="text" class="form-control form-control-sm mb-1 np-ind-desc-input" value="${escapeHtml(desc)}" placeholder="Descripción de la actuación">
+                        <input type="text" class="form-control form-control-sm mb-1 np-ind-temp-input" value="${escapeHtml(temp)}" placeholder="Temporalización">
                         <div class="d-flex align-items-center gap-2">
                             <small class="text-muted">Responsable:</small>
-                            <span class="small np-ind-resps-display">${resps.length > 0 ? resps.join(', ') : 'Sin asignar'}</span>
+                            <span class="small np-ind-resps-display">${resps.length > 0 ? resps.map(escapeHtml).join(', ') : 'Sin asignar'}</span>
                             <button class="btn btn-sm btn-outline-primary np-btn-edit-resps" title="Editar responsables">
                                 <svg xmlns="http://www.w3.org/2000/svg" width="11" height="11" fill="currentColor" viewBox="0 0 16 16"><path d="M15.502 1.94a.5.5 0 0 1 0 .706L14.459 3.69l-2-2L13.502.646a.5.5 0 0 1 .707 0l1.293 1.293zm-1.75 2.456-2-2L4.939 9.21a.5.5 0 0 0-.121.196l-.805 2.414a.25.25 0 0 0 .316.316l2.414-.805a.5.5 0 0 0 .196-.12l6.813-6.814z"/></svg>
                             </button>
@@ -3237,7 +3265,7 @@
                         <span class="np-resp-badge"></span>
                         <select class="form-select form-select-sm np-resp-select" style="width: auto; display: inline-block; max-width: 160px;">
                             <option value="">-- Responsable --</option>
-                            ${(window.listaResponsablesGlobal || []).map(r => `<option value="${r}">${r}</option>`).join('')}
+                            ${(window.listaResponsablesGlobal || []).map(r => `<option value="${escapeHtml(r)}">${escapeHtml(r)}</option>`).join('')}
                         </select>
                         <button class="btn btn-outline-primary btn-sm np-add-resp-btn" type="button">+</button>
                     </div>
@@ -3249,7 +3277,7 @@
 
                 function renderBadges() {
                     badgeEl.innerHTML = editResps.map((r, i) =>
-                        `<span class="badge bg-success me-1" style="cursor:pointer;" title="Quitar">${r} <span class="np-remove-resp" data-idx="${i}">&times;</span></span>`
+                        `<span class="badge bg-success me-1" style="cursor:pointer;" title="Quitar">${escapeHtml(r)} <span class="np-remove-resp" data-idx="${i}">&times;</span></span>`
                     ).join('');
                     badgeEl.querySelectorAll('.np-remove-resp').forEach(btn => {
                         btn.addEventListener('click', function() {
@@ -3289,7 +3317,7 @@
                     div.dataset.resps = JSON.stringify(editResps);
                     container.innerHTML = `
                         <small class="text-muted">Responsable:</small>
-                        <span class="small np-ind-resps-display">${editResps.length > 0 ? editResps.join(', ') : 'Sin asignar'}</span>
+                        <span class="small np-ind-resps-display">${editResps.length > 0 ? editResps.map(escapeHtml).join(', ') : 'Sin asignar'}</span>
                         <button class="btn btn-sm btn-outline-primary np-btn-edit-resps" title="Editar responsables">
                             <svg xmlns="http://www.w3.org/2000/svg" width="11" height="11" fill="currentColor" viewBox="0 0 16 16"><path d="M15.502 1.94a.5.5 0 0 1 0 .706L14.459 3.69l-2-2L13.502.646a.5.5 0 0 1 .707 0l1.293 1.293zm-1.75 2.456-2-2L4.939 9.21a.5.5 0 0 0-.121.196l-.805 2.414a.25.25 0 0 0 .316.316l2.414-.805a.5.5 0 0 0 .196-.12l6.813-6.814z"/></svg>
                         </button>
@@ -3335,11 +3363,11 @@
                     autoDiv.innerHTML = `
                         <span class="badge bg-primary mt-1">${idx}</span>
                         <div class="flex-grow-1">
-                            <input type="text" class="form-control form-control-sm mb-1 np-ind-desc-input" value="${pendingIndDesc.replace(/"/g, '&quot;')}" placeholder="Descripción de la actuación">
-                            <input type="text" class="form-control form-control-sm mb-1 np-ind-temp-input" value="${pendingTemp.replace(/"/g, '&quot;')}" placeholder="Temporalización">
+                            <input type="text" class="form-control form-control-sm mb-1 np-ind-desc-input" value="${escapeHtml(pendingIndDesc)}" placeholder="Descripción de la actuación">
+                            <input type="text" class="form-control form-control-sm mb-1 np-ind-temp-input" value="${escapeHtml(pendingTemp)}" placeholder="Temporalización">
                             <div class="d-flex align-items-center gap-2">
                                 <small class="text-muted">Responsable:</small>
-                                <span class="small np-ind-resps-display">${pendingResps.length > 0 ? pendingResps.join(', ') : 'Sin asignar'}</span>
+                                <span class="small np-ind-resps-display">${pendingResps.length > 0 ? pendingResps.map(escapeHtml).join(', ') : 'Sin asignar'}</span>
                             </div>
                         </div>
                     `;
@@ -3427,12 +3455,11 @@
             });
         }
 
-        // Sub-función: PWA (guardado manual, auto-guardado)
-        // Nota: El auto-guardado se registra dentro de registrarEventListenersPWA()
-        // para agrupar la lógica de persistencia.
+        // Sub-función: PWA (guardado manual)
+        // Nota: la visibilidad del botón Guardar la decide mostrarApp() según
+        // el perfil (solo Admin); el listener se registra una sola vez.
         function registrarEventListenersPWA() {
             // Botón de guardar manual
-            document.getElementById('btn-guardar-manual').classList.remove('hidden');
             document.getElementById('btn-guardar-manual').addEventListener('click', function() {
                 const btn = this;
                 const originalText = btn.innerHTML;
@@ -3451,9 +3478,15 @@
                     }, 1500);
                 });
             });
+        }
 
-            // Auto-guardado cada 3 minutos
-            // Limpiar intervalo anterior si existe para evitar fugas de memoria
+        // Auto-guardado cada 3 minutos. Función aparte: se (re)arranca en cada
+        // inicio de sesión porque desconectarListeners() lo detiene al cerrar
+        // sesión y registrarEventListeners() no vuelve a ejecutarse (guard de
+        // appInitialized). Antes, tras cerrar sesión y volver a entrar, el
+        // auto-guardado quedaba muerto hasta recargar la página.
+        function iniciarAutoGuardado() {
+            // Limpiar intervalo anterior si existe para evitar duplicados
             if (autoSaveInterval) clearInterval(autoSaveInterval);
             autoSaveInterval = setInterval(async function() {
                 await guardarEstados();
@@ -3522,6 +3555,18 @@
                 });
             });
             return salida;
+        }
+
+        // Escapar texto antes de incrustarlo en HTML: evita que descripciones,
+        // responsables o nombres introducidos por usuarios rompan el marcado
+        // o inyecten código en las vistas de otros perfiles.
+        function escapeHtml(txt) {
+            return String(txt == null ? '' : txt)
+                .replace(/&/g, '&amp;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;')
+                .replace(/"/g, '&quot;')
+                .replace(/'/g, '&#39;');
         }
 
         async function guardarEstados() {
@@ -3822,17 +3867,22 @@
 
                     // Reconectar el listener de estados al nuevo curso
                     cargarEstados().then(() => {
+                        // Los bloqueos son por curso: recargarlos también
+                        cargarBloqueos();
                         llenarFiltroAreas();
                         llenarFiltroFactores();
                         llenarFiltroResponsables();
                         llenarSelectNuevaPropuesta();
+                        renderListaResponsablesAdmin();
                         actualizarVista();
                         escucharCambiosEstados();
+                        escucharCambiosBloqueos();
                     });
                 }
 
                 actualizarSelectCursos();
                 actualizarVisibilidadBtnBorrar();
+                refrescarBloqueoEliminar();
             }, function(error) {
                 console.error('Error en listener de cursos:', error);
             });
@@ -4085,8 +4135,8 @@
                     if (filtroResponsable) {
                         indicadorResponsable.innerHTML = 'Responsable: ' + resps.map(r =>
                             r === filtroResponsable
-                                ? '<mark class="filtro-highlight">' + r + '</mark>'
-                                : r
+                                ? '<mark class="filtro-highlight">' + escapeHtml(r) + '</mark>'
+                                : escapeHtml(r)
                         ).join(', ');
                     } else {
                         indicadorResponsable.textContent = 'Responsable: ' + resps.join(', ');
@@ -4313,7 +4363,7 @@
                 btnGroup.appendChild(btnEliminar);
 
                 // Botón de bloqueo individual (solo admin, no visible si el bloqueo afecta al propio admin)
-                if (currentUser.role === 'Admin' && bloqueoEdicionAlcance !== 'todos') {
+                if (currentUser && currentUser.role === 'Admin' && bloqueoEdicionAlcance !== 'todos') {
                     const btnLock = document.createElement('button');
                     btnLock.className = 'btn btn-sm btn-outline-secondary btn-lock-individual';
                     btnLock.title = propuestasBloqueadas[propuesta.id] ? 'Desbloquear indicador' : 'Bloquear indicador';
@@ -4675,7 +4725,7 @@
 
             // Construir contenido del modal
             let modalContent = `
-                <h4>${factorEncontrado.id}. ${factorEncontrado.nombre}</h4>
+                <h4>${factorEncontrado.id}. ${escapeHtml(factorEncontrado.nombre)}</h4>
                 <div class="table-responsive">
                     <table class="factores-table mt-3">
                         <thead>
@@ -4689,7 +4739,7 @@
             (factorEncontrado.elementosBueno || []).forEach(elemento => {
                 modalContent += `
                     <tr>
-                        <td>${elemento}</td>
+                        <td>${escapeHtml(elemento)}</td>
                     </tr>
                 `;
             });
@@ -4752,6 +4802,15 @@
             reader.onload = async function(e) {
                 try {
                     const datosImportados = JSON.parse(e.target.result);
+                    if (!Array.isArray(datosImportados)) {
+                        throw new Error('el archivo no tiene el formato exportado por esta aplicación');
+                    }
+
+                    // Confirmación previa: la importación sobrescribe los
+                    // indicadores del curso actual que aparezcan en el archivo
+                    if (!confirm('Vas a importar ' + datosImportados.length + ' indicador(es) del archivo seleccionado.\n\nSus valores SOBRESCRIBEN los de los indicadores del curso actual (' + cursoActual + ') con el mismo código; el resto no se toca.\n\n¿Continuar?')) {
+                        return;
+                    }
 
                     // Actualizar los estados y las actuaciones de los indicadores
                     datosImportados.forEach(dato => {
@@ -5041,11 +5100,12 @@
             doc.setFont(undefined, 'normal');
             doc.text('Curso ' + cursoActual, 105, 22, { align: 'center' });
 
+            // '' = «Todos los responsables»: el informe incluye entonces las
+            // actuaciones de cualquiera de ellos (esa opción la ofrece el propio
+            // desplegable del panel de informes y la documentan los tutoriales).
             const responsableSeleccionado = document.getElementById('reportResponsable').value;
-            if (!responsableSeleccionado) {
-                alert('Por favor, selecciona un responsable');
-                return;
-            }
+            const soloResponsable = responsableSeleccionado || null;
+            const nombreResponsable = responsableSeleccionado || 'Todos los responsables';
 
             doc.setFontSize(14);
             doc.setFont(undefined, 'bold');
@@ -5053,16 +5113,18 @@
 
             doc.setFontSize(10);
             doc.setFont(undefined, 'normal');
-            doc.text('Responsable: ' + responsableSeleccionado, 20, 45);
+            doc.text('Responsable: ' + nombreResponsable, 20, 45);
 
             const indicadoresPorResponsable = [];
             areasData.forEach(area => {
                 area.factoresClave.forEach(factor => {
                     factor.propuestas.forEach(propuesta => {
-                        const tieneResponsable = (propuesta.indicadores || []).some(act => {
-                            const resps = normalizarResponsable(act.responsable);
-                            return resps.includes(responsableSeleccionado);
-                        });
+                        const tieneResponsable = soloResponsable
+                            ? (propuesta.indicadores || []).some(act => {
+                                const resps = normalizarResponsable(act.responsable);
+                                return resps.includes(soloResponsable);
+                            })
+                            : (propuesta.indicadores || []).length > 0;
                         if (tieneResponsable) {
                             indicadoresPorResponsable.push({ area: area.nombre, factor: factor.id + ' - ' + factor.nombre, propuesta: propuesta });
                         }
@@ -5117,10 +5179,12 @@
                 doc.text('Estado: ' + nombresEstados[propuesta.estado], 20, yPosition);
                 yPosition += 6;
 
-                const actuacionesDelResponsable = (propuesta.indicadores || []).filter(act => {
-                    const resps = normalizarResponsable(act.responsable);
-                    return resps.includes(responsableSeleccionado);
-                });
+                const actuacionesDelResponsable = soloResponsable
+                    ? (propuesta.indicadores || []).filter(act => {
+                        const resps = normalizarResponsable(act.responsable);
+                        return resps.includes(soloResponsable);
+                    })
+                    : (propuesta.indicadores || []);
 
                 if (actuacionesDelResponsable.length > 0) {
                     doc.setFontSize(10);
@@ -5128,7 +5192,7 @@
                     if (yPosition > 270) { doc.addPage(); yPosition = 20; }
                     doc.text('Actuaciones vinculadas:', 20, yPosition);
                     yPosition += 6;
-                    yPosition = pdfImprimirActuaciones(doc, propuesta.indicadores, yPosition, responsableSeleccionado);
+                    yPosition = pdfImprimirActuaciones(doc, propuesta.indicadores, yPosition, soloResponsable);
                 }
 
                 yPosition += 8;
@@ -5139,7 +5203,9 @@
                 }
             });
 
-            doc.save('informe_por_responsable_' + responsableSeleccionado.replace(/\s+/g, '_') + '.pdf');
+            doc.save(soloResponsable
+                ? 'informe_por_responsable_' + soloResponsable.replace(/\s+/g, '_') + '.pdf'
+                : 'informe_por_responsable_todos.pdf');
         }
 
         // ============================================================
@@ -5151,7 +5217,7 @@
             let html = '<option value="">-- Seleccionar --</option>';
             responsables.forEach(r => {
                 const sel = Array.isArray(selected) && selected.includes(r) ? ' selected' : '';
-                html += `<option value="${r}"${sel}>${r}</option>`;
+                html += `<option value="${escapeHtml(r)}"${sel}>${escapeHtml(r)}</option>`;
             });
             return html;
         }
@@ -5182,8 +5248,8 @@
             const estadoActual = ind.estado;
             indDiv.innerHTML = `
                 <div class="flex-grow-1">
-                    <textarea class="form-control form-control-sm edit-ind-desc mb-1" rows="2">${ind.descripcion}</textarea>
-                    <input type="text" class="form-control form-control-sm edit-ind-temp mb-1" value="${(ind.temporalizacion || '').replace(/"/g, '&quot;')}" placeholder="Temporalización (ej: Todo el curso)">
+                    <textarea class="form-control form-control-sm edit-ind-desc mb-1" rows="2">${escapeHtml(ind.descripcion)}</textarea>
+                    <input type="text" class="form-control form-control-sm edit-ind-temp mb-1" value="${escapeHtml(ind.temporalizacion || '')}" placeholder="Temporalización (ej: Todo el curso)">
                     <div class="edit-resps-badges d-flex flex-wrap gap-1 mb-1"></div>
                     <div class="row g-1 align-items-end">
                         <div class="col-sm-6">
@@ -5219,8 +5285,8 @@
                             <option value="parcial">Parcial</option>
                         </select>
                     </div>
-                    <textarea class="form-control form-control-sm edit-ind-just mb-1" rows="2" placeholder="Justificación del logro">${ind.justificacion || ''}</textarea>
-                    <textarea class="form-control form-control-sm edit-ind-dific" rows="2" placeholder="Dificultades encontradas">${ind.dificultades || ''}</textarea>
+                    <textarea class="form-control form-control-sm edit-ind-just mb-1" rows="2" placeholder="Justificación del logro">${escapeHtml(ind.justificacion || '')}</textarea>
+                    <textarea class="form-control form-control-sm edit-ind-dific" rows="2" placeholder="Dificultades encontradas">${escapeHtml(ind.dificultades || '')}</textarea>
                 </div>
                 <button class="btn btn-sm btn-outline-danger btn-remove-ind align-self-start" title="Eliminar actuación" data-idx="${idx}">
                     <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" fill="currentColor" viewBox="0 0 16 16"><path d="M5.5 5.5A.5.5 0 0 1 6 6v6a.5.5 0 0 1-1 0V6a.5.5 0 0 1 .5-.5zm2.5 0a.5.5 0 0 1 .5.5v6a.5.5 0 0 1-1 0V6a.5.5 0 0 1 .5-.5zm3 .5a.5.5 0 0 0-1 0v6a.5.5 0 0 0 1 0V6z"/><path fill-rule="evenodd" d="M14.5 3a1 1 0 0 1-1 1H13v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V4h-.5a1 1 0 0 1-1-1V2a1 1 0 0 1 1-1H5.5l1-1h3l1 1h2.5a1 1 0 0 1 1 1v1zM4.118 4 4 4.059V13a1 1 0 0 0 1 1h6a1 1 0 0 0 1-1V4.059L11.882 4H4.118zM2.5 3V2h11v1h-11z"/></svg>
@@ -5246,7 +5312,7 @@
                 ind.responsable.forEach(r => {
                     const badge = document.createElement('span');
                     badge.className = 'badge bg-secondary';
-                    badge.innerHTML = `${r} <button type="button" class="btn-close btn-close-white ms-1" style="font-size:0.55rem"></button>`;
+                    badge.innerHTML = `${escapeHtml(r)} <button type="button" class="btn-close btn-close-white ms-1" style="font-size:0.55rem"></button>`;
                     badge.querySelector('.btn-close').addEventListener('click', function() {
                         ind.responsable = ind.responsable.filter(x => x !== r);
                         renderBadges();
@@ -5604,8 +5670,8 @@
                 const indDiv = document.createElement('div');
                 indDiv.className = 'mb-3 p-3 bg-light rounded';
                 indDiv.innerHTML = `
-                    <div class="fw-bold mb-1">Actuación ${idx + 1}: ${ind.descripcion}</div>
-                    <div class="small text-muted mb-2">${ind.temporalizacion ? 'Temporalización: ' + ind.temporalizacion + ' · ' : ''}Responsables: ${resps.length ? resps.join(', ') : '—'}</div>
+                    <div class="fw-bold mb-1">Actuación ${idx + 1}: ${escapeHtml(ind.descripcion)}</div>
+                    <div class="small text-muted mb-2">${ind.temporalizacion ? 'Temporalización: ' + escapeHtml(ind.temporalizacion) + ' · ' : ''}Responsables: ${resps.length ? resps.map(escapeHtml).join(', ') : '—'}</div>
                     <div class="mb-2">
                         <small class="fw-bold text-muted d-block mb-1">Estado de la actuación:</small>
                         <div class="d-flex flex-wrap gap-2">
@@ -5619,11 +5685,11 @@
                     <div class="row g-2">
                         <div class="col-sm-6">
                             <label class="form-label small mb-1 fw-bold text-muted" for="am-just-${idx}">Justificación:</label>
-                            <textarea class="form-control form-control-sm" id="am-just-${idx}" rows="2" placeholder="Justificación del logro">${ind.justificacion || ''}</textarea>
+                            <textarea class="form-control form-control-sm" id="am-just-${idx}" rows="2" placeholder="Justificación del logro">${escapeHtml(ind.justificacion || '')}</textarea>
                         </div>
                         <div class="col-sm-6">
                             <label class="form-label small mb-1 fw-bold text-muted" for="am-dific-${idx}">Dificultades:</label>
-                            <textarea class="form-control form-control-sm" id="am-dific-${idx}" rows="2" placeholder="Dificultades encontradas">${ind.dificultades || ''}</textarea>
+                            <textarea class="form-control form-control-sm" id="am-dific-${idx}" rows="2" placeholder="Dificultades encontradas">${escapeHtml(ind.dificultades || '')}</textarea>
                         </div>
                     </div>`;
                 listEl.appendChild(indDiv);
@@ -5908,11 +5974,21 @@
             // Detectar cambios en la conectividad
             window.addEventListener('online', () => {
                 document.getElementById('offlineIndicator').style.display = 'none';
+                // Al volver la conexión, persistir los cambios hechos sin red
+                // (los tutoriales documentan este comportamiento)
+                if (currentUser && hayCambiosSinGuardar()) {
+                    guardarEstados();
+                }
             });
 
             window.addEventListener('offline', () => {
                 document.getElementById('offlineIndicator').style.display = 'block';
             });
+
+            // Si la app se abre ya sin conexión, mostrar el indicador
+            if (!navigator.onLine) {
+                document.getElementById('offlineIndicator').style.display = 'block';
+            }
 
             // Configurar botones de instalación
             document.getElementById('installButton').addEventListener('click', async () => {
@@ -5961,18 +6037,8 @@
             initApp();
         });
 
-        // Service Worker para PWA
-        if ('serviceWorker' in navigator) {
-            window.addEventListener('load', function() {
-                navigator.serviceWorker.register('./sw.js')
-                    .then(function(registration) {
-                        console.log('ServiceWorker registrado con éxito: ', registration.scope);
-                    })
-                    .catch(function(error) {
-                        console.log('Error al registrar ServiceWorker: ', error);
-                    });
-            });
-        }
+        // (El registro del service worker se hace una sola vez, en el script
+        // del final del documento y con scope explícito './'.)
 
         // Chip de versión de la cabecera: se lee del service worker (sw.js,
         // generado por make_pwa.py con SW_VERSION). Si no se puede leer, el
