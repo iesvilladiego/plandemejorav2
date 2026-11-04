@@ -1,0 +1,44 @@
+{
+  "id": "/plandemejorav2/",
+  "name": "Plan de Mejora V2026 - IES Virgen de Villadiego",
+  "short_name": "Plan de Mejora",
+  "description": "Plan de Mejora 2026-2027 del IES Virgen de Villadiego: indicadores por ámbito y proceso, actuaciones con responsables y estados, e informes PDF.",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "any",
+  "theme_color": "#2563eb",
+  "background_color": "#1e3a8a",
+  "lang": "es",
+  "dir": "ltr",
+  "categories": [
+    "education",
+    "productivity"
+  ],
+  "icons": [
+    {
+      "src": "icons/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "icons/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "icons/icon-maskable-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "maskable"
+    },
+    {
+      "src": "icons/icon-maskable-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    }
+  ]
+}
