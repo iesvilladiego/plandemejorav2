@@ -1314,6 +1314,11 @@
                 </div>
                 <div class="modal-body">
                     <input type="hidden" id="edit-propuesta-id">
+                    <div class="mb-3" id="edit-estado-indicador-block">
+                        <label class="form-label fw-bold">Estado del indicador</label>
+                        <div id="edit-estado-indicador" class="d-flex flex-wrap gap-2"></div>
+                        <div class="form-text mt-1">Con «No iniciado» se ocultan las actuaciones vinculadas (se conservan sus valores). Con «Conseguido» se registra la fecha de consecución si no existía.</div>
+                    </div>
                     <div class="mb-3">
                         <label class="form-label fw-bold">Descripción</label>
                         <textarea id="edit-propuesta-desc" class="form-control" rows="3"></textarea>
@@ -1333,11 +1338,6 @@
                     <div class="mb-3">
                         <label class="form-label fw-bold">Fecha de inclusión</label>
                         <input type="date" id="edit-propuesta-fecha" class="form-control">
-                    </div>
-                    <div class="mb-3" id="edit-estado-indicador-block">
-                        <label class="form-label fw-bold">Estado del indicador</label>
-                        <div id="edit-estado-indicador" class="d-flex flex-wrap gap-2"></div>
-                        <div class="form-text mt-1">Con «No iniciado» se ocultan las actuaciones vinculadas (se conservan sus valores). Con «Conseguido» se registra la fecha de consecución si no existía.</div>
                     </div>
                     <div class="mb-3">
                         <label class="form-label fw-bold">Actuaciones vinculadas</label>
