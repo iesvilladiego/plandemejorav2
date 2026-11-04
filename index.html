@@ -1827,6 +1827,11 @@
         let unsubscribeCursos = null;    // Listener para el documento de cursos
         let unsubscribeResponsables = null; // Listener para responsables
         let guardadoReciente = false;    // Flag para evitar procesar nuestro propio guardado como cambio remoto
+        // Instante de la última mutación aún no reflejada en Firestore y
+        // comienzo del último guardado completado con éxito: mientras la
+        // mutación sea posterior, hay cambios sin guardar.
+        let ultimaMutacionTs = 0;
+        let ultimoGuardadoInicio = 0;
 
         // Variables para bloqueo de edición
         // Alcances posibles: 'ninguno', 'usuarios', 'todos'
@@ -2344,8 +2349,10 @@
 
             // Configurar eventos de login
             document.getElementById('login-btn').addEventListener('click', handleLogin);
-            document.getElementById('btn-logout').addEventListener('click', function() {
-                if (confirm('¿Cerrar sesión?')) {
+            document.getElementById('btn-logout').addEventListener('click', async function() {
+                // Con cambios sin guardar, confirmarCierreSesion() los guarda
+                // (Aceptar) o deja revisarlos (Cancelar) antes de cerrar.
+                if (await confirmarCierreSesion()) {
                     desconectarListeners();
                     sessionStorage.removeItem('plan_mejora_user');
                     currentUser = null;
@@ -3440,6 +3447,12 @@
 
         async function guardarEstados() {
             if (!db || !currentUser) return;
+            // Instante de inicio de este guardado: cuando se complete, habrá
+            // persistido el estado en memoria tal como estaba aquí. La marca
+            // de mutación NO se pone aquí: un guardado redundante (debounce
+            // duplicado, auto-guardado, el flush del propio cierre de sesión)
+            // no es una mutación y no debe contar como cambio pendiente.
+            const inicioGuardadoTs = Date.now();
             try {
                 const datos = {};
                 areasData.forEach(area => {
@@ -3482,6 +3495,9 @@
                     datos: datos,
                     updatedAt: firebase.firestore.FieldValue.serverTimestamp()
                 });
+                // Este guardado deja persistido el estado en memoria tal como
+                // estaba al empezar: cubre toda mutación anterior a su inicio.
+                ultimoGuardadoInicio = Math.max(ultimoGuardadoInicio, inicioGuardadoTs);
                 console.log('Estados guardados correctamente en Firestore. Indicadores:', Object.keys(datos).filter(id => !datos[id].eliminada).length, 'Eliminados:', propuestasEliminadasGlobal.length);
                 actualizarSaveStatus();
 
@@ -3494,8 +3510,35 @@
             }
         }
 
-        // Versión con debounce de guardarEstados() para evitar llamadas rápidas sucesivas
-        const guardarEstadosDebounced = debounce(guardarEstados, 1000);
+        // ¿Hay cambios en memoria que aún no constan en Firestore? Compara el
+        // instante de la última mutación con el inicio del último guardado
+        // completado: un guardado cubre lo que había en memoria al empezar.
+        function hayCambiosSinGuardar() {
+            return ultimaMutacionTs > ultimoGuardadoInicio;
+        }
+
+        // Confirmación del cierre de sesión. Sin cambios pendientes es el
+        // confirm clásico; con ellos, Aceptar los guarda y cierra sesión y
+        // Cancelar vuelve a la app para revisarlos o guardar a mano.
+        async function confirmarCierreSesion() {
+            if (!hayCambiosSinGuardar()) return confirm('¿Cerrar sesión?');
+            if (!confirm('Tienes cambios que aún no se han guardado en la base de datos.\n\nAceptar: guardar y cerrar sesión.\nCancelar: volver a la app para revisarlos.')) return false;
+            await guardarEstados();
+            // Si sigue habiendo cambios sin guardar es que el guardado falló
+            // (ya lo avisó guardarEstados): no cerramos la sesión.
+            return !hayCambiosSinGuardar();
+        }
+
+        // Versión con debounce de guardarEstados() para evitar llamadas rápidas sucesivas.
+        // La marca de mutación se toma en el instante del cambio, no cuando
+        // el guardado retardado llegue: cubre también el segundo de retardo.
+        function marcarMutacion(fn) {
+            return function() {
+                ultimaMutacionTs = Date.now();
+                return fn.apply(this, arguments);
+            };
+        }
+        const guardarEstadosDebounced = marcarMutacion(debounce(guardarEstados, 1000));
 
         /* =====================================================================
          * FUNCIONES COMPARTIDAS PARA CARGA DE ESTADOS
