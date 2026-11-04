@@ -4,7 +4,7 @@
  * Caches con prefijo propio "plandemejora-v2-": al activar solo se borran las
  * versiones anteriores de esta app, nunca las de otro SW del origen.
  * Generado por scripts/make_pwa.py; sube SW_VERSION para publicar cambios. */
-var VERSION = 'v1.3.0';
+var VERSION = 'v1.4.0';
 var CACHE_NAME = 'plandemejora-v2-' + VERSION;
 var APP_SHELL = [
     './',
