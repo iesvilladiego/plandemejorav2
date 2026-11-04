@@ -1384,6 +1384,10 @@
                 </div>
                 <div class="modal-body">
                     <div id="actuacionesModalInfo" class="alert alert-info py-2 px-3 small"></div>
+                    <div class="mb-3">
+                        <label class="form-label fw-bold mb-1">Estado del indicador:</label>
+                        <div id="am-indicador-estado" class="d-flex flex-wrap gap-2"></div>
+                    </div>
                     <div id="actuacionesModalList"></div>
                 </div>
                 <div class="modal-footer">
@@ -5415,18 +5419,64 @@
             return e ? e.texto : valor;
         }
 
+        // Estados del indicador para este modal, en masculino (el indicador);
+        // los de cada actuación (ESTADOS_ACTUACION) van en femenico. Los
+        // valores almacenados siguen siendo los de siempre.
+        const ESTADOS_INDICADOR = [
+            { valor: 'no-iniciada', texto: 'No iniciado', clase: 'estado-no-iniciada' },
+            { valor: 'en-proceso', texto: 'En proceso', clase: 'estado-en-proceso' },
+            { valor: 'conseguida', texto: 'Conseguido', clase: 'estado-conseguida' }
+        ];
+
+        function textoEstadoIndicador(valor) {
+            const e = ESTADOS_INDICADOR.find(x => x.valor === valor);
+            return e ? e.texto : valor;
+        }
+
         function abrirModalActuaciones(propuesta) {
             // Sin actuaciones vinculadas no hay nada que revisar: el indicador
             // cambia de estado y las actuaciones se completarán al editarlo.
             if (!propuesta.indicadores || propuesta.indicadores.length === 0) return;
 
             propuesta.indicadores.forEach(ind => { ind.responsable = normalizarResponsable(ind.responsable); });
-            const estadoTxt = textoEstadoActuacion(propuesta.estado);
             const listEl = document.getElementById('actuacionesModalList');
             const infoEl = document.getElementById('actuacionesModalInfo');
+            const estadoIndEl = document.getElementById('am-indicador-estado');
 
             document.getElementById('actuacionesModalTitle').textContent = 'Modificar actuaciones — Indicador ' + propuesta.id;
-            infoEl.textContent = 'Has marcado el indicador como «' + estadoTxt + '». Revisa sus actuaciones: al menos una debe quedar también «' + estadoTxt + '». Ajusta sus estados, justificaciones y dificultades y pulsa Guardar.';
+
+            // Texto de ayuda: refleja el estado marcado en el selector del
+            // modal, que parte del que traía la tarjeta.
+            function pintarInfo(estadoValor) {
+                const t = textoEstadoIndicador(estadoValor);
+                infoEl.textContent = 'El indicador está marcado como «' + t + '». Revisa sus actuaciones: al menos una debe quedar también «' + t + '». Puedes cambiar el estado del indicador, ajustar los estados, justificaciones y dificultades de sus actuaciones, y pulsar Guardar.';
+            }
+
+            // Selector del estado del indicador: mismos radios que la tarjeta
+            // con el estado actual marcado. Al cambiarlo se refresca el texto
+            // de ayuda: la exigencia pasa a ser con el estado nuevo y se
+            // valida al Guardar.
+            estadoIndEl.innerHTML = '';
+            ESTADOS_INDICADOR.forEach(e => {
+                const div = document.createElement('div');
+                div.className = 'form-check form-check-inline mb-0';
+                const input = document.createElement('input');
+                input.className = 'form-check-input';
+                input.type = 'radio';
+                input.name = 'am-indicador-estado';
+                input.id = 'am-indicador-estado-' + e.valor;
+                input.value = e.valor;
+                input.checked = (propuesta.estado || 'no-iniciada') === e.valor;
+                input.addEventListener('change', function() { if (this.checked) pintarInfo(this.value); });
+                const label = document.createElement('label');
+                label.className = 'form-check-label estado-label ' + e.clase;
+                label.htmlFor = 'am-indicador-estado-' + e.valor;
+                label.textContent = e.texto;
+                div.appendChild(input);
+                div.appendChild(label);
+                estadoIndEl.appendChild(div);
+            });
+            pintarInfo(propuesta.estado || 'no-iniciada');
 
             listEl.innerHTML = '';
             propuesta.indicadores.forEach((ind, idx) => {
@@ -5491,9 +5541,24 @@
                     dificultades: dif ? dif.value.trim() : (ind.dificultades || '')
                 };
             });
-            if (!nuevos.some(n => n.estado === propuesta.estado)) {
-                alert('Al menos una actuación debe quedar con el mismo estado que el indicador («' + textoEstadoActuacion(propuesta.estado) + '»).');
+            // Estado del indicador: se lee del selector del modal, que parte
+            // del que traía la tarjeta pero puede cambiarse aquí. La exigencia
+            // se valida con el estado nuevo.
+            const radioInd = document.querySelector('input[name="am-indicador-estado"]:checked');
+            const nuevoEstadoInd = radioInd ? radioInd.value : (propuesta.estado || 'no-iniciada');
+            if (!nuevos.some(n => n.estado === nuevoEstadoInd)) {
+                alert('Al menos una actuación debe quedar con el mismo estado que el indicador («' + textoEstadoIndicador(nuevoEstadoInd) + '»).');
                 return;
+            }
+            // Misma regla que la tarjeta al cambiar el estado: Conseguido fija
+            // la fecha de consecución si no la había; el resto la retira.
+            propuesta.estado = nuevoEstadoInd;
+            if (nuevoEstadoInd === 'conseguida') {
+                if (!propuesta.fechaConsecucion) {
+                    propuesta.fechaConsecucion = new Date().toISOString().split('T')[0];
+                }
+            } else {
+                propuesta.fechaConsecucion = null;
             }
             propuesta.indicadores.forEach((ind, idx) => {
                 ind.estado = nuevos[idx].estado;
