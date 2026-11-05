@@ -2743,6 +2743,10 @@
             if (curso === cursoActual) return;
             // Save current state before switching
             await guardarEstados();
+            if (hayCambiosSinGuardar()) {
+                alert('No se puede cambiar de curso porque hay cambios pendientes de guardar. Comprueba la conexión e inténtalo de nuevo.');
+                return;
+            }
             cursoActual = curso;
             // Reset deleted list for new course
             propuestasEliminadasGlobal = [];
@@ -2975,6 +2979,8 @@
                 console.log('Eliminado documento de propuestas del curso', cursoActual);
             } catch(e) {
                 console.error('Error eliminando propuestas:', e);
+                alert('No se pudieron eliminar las propuestas: ' + e.message);
+                return;
             }
 
             propuestasEliminadasGlobal = [];
@@ -5071,6 +5077,20 @@
                     if (!Array.isArray(datosImportados)) {
                         throw new Error('el archivo no tiene el formato exportado por esta aplicación');
                     }
+                    // Validar el archivo completo antes de modificar memoria:
+                    // JSON válido puede contener null, primitivas o listas
+                    // malformadas y provocar una importación parcial.
+                    const estructuraValida = datosImportados.every(function(dato) {
+                        return dato && typeof dato === 'object' && !Array.isArray(dato)
+                            && typeof dato.codigo === 'string' && dato.codigo.trim() !== ''
+                            && (dato.indicadores === undefined || (Array.isArray(dato.indicadores)
+                                && dato.indicadores.every(function(ind) {
+                                    return ind && typeof ind === 'object' && !Array.isArray(ind);
+                                })));
+                    });
+                    if (!estructuraValida) {
+                        throw new Error('el archivo contiene indicadores o actuaciones con formato no válido');
+                    }
 
                     // Confirmación previa: la importación sobrescribe los
                     // indicadores del curso actual que aparezcan en el archivo
@@ -5084,6 +5104,7 @@
                     const ESTADOS_VALIDOS = ['no-iniciada', 'en-proceso', 'conseguida'];
 
                     // Actualizar los estados y las actuaciones de los indicadores
+                    ultimaMutacionTs = Date.now();
                     datosImportados.forEach(dato => {
                         areasData.forEach(area => {
                             area.factoresClave.forEach(factor => {
