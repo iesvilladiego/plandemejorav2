@@ -2119,6 +2119,7 @@
                 if (savedUser) {
                     try {
                         currentUser = JSON.parse(savedUser);
+                        if (!currentUser || !currentUser.username || !currentUser.role) throw new Error('Sesión no válida');
                         await inicializarAplicacion();
                         mostrarApp();
                     } catch (e) {
@@ -4024,6 +4025,13 @@
 
         async function recargarEstadosDesdeSnapshot(doc) {
             try {
+                // Nunca reemplazar cambios locales que todavía no estén en
+                // Firestore con un snapshot remoto (incluido el primer snapshot
+                // de caché de Firestore al recuperar la conexión).
+                if (hayCambiosSinGuardar()) {
+                    console.warn('Snapshot remoto aplazado: hay cambios locales pendientes.');
+                    return;
+                }
                 // Un documento inexistente significa curso sin datos (por
                 // ejemplo tras «Borrar todos los indicadores del curso» desde
                 // otra sesión): hay que vaciar la vista, no dejarla obsoleta.
@@ -6293,10 +6301,10 @@
                 document.getElementById('offlineIndicator').style.display = 'block';
             });
 
-            // Si la app se abre ya sin conexión, mostrar el indicador
-            if (!navigator.onLine) {
-                document.getElementById('offlineIndicator').style.display = 'block';
-            }
+            // En algunos navegadores, después de una recarga offline el
+            // primer evento online puede no dispararse; mantener el estado
+            // visible sincronizado con navigator.onLine en cada inicio.
+            document.getElementById('offlineIndicator').style.display = navigator.onLine ? 'none' : 'block';
 
             // Configurar botones de instalación
             document.getElementById('installButton').addEventListener('click', async () => {
