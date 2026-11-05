@@ -283,6 +283,7 @@ ADMIN = {
                  'Exportar / importar datos']),
              ('Además, solo Admin', [
                  'Gestionar usuarios: crear, editar, eliminar, perfiles',
+                 'Gestionar la lista global de responsables',
                  'Bloquear la edición (general e indicador a indicador)',
                  'Añadir/eliminar cursos y copiar al próximo curso',
                  'Borrar todos los indicadores y guardar a mano'])),
@@ -346,11 +347,11 @@ ADMIN = {
                   'indicador** (visible si ya está En proceso o Conseguido): marcar «No iniciado» '
                   'oculta en el acto las actuaciones vinculadas y marcar otro estado las muestra '
                   'de nuevo; al Guardar se aplica la regla de la fecha de consecución.'),
-            ('p', 'El resto del modal: descripción, valor objetivo, propuesta de mejora, memoria, '
-                  'fecha de inclusión y las **actuaciones vinculadas** (temporalización, '
-                  'responsables, estado, logro, justificación, dificultades). Con el indicador en '
-                  '«No iniciada» el modal oculta las actuaciones existentes, aunque seguirás '
-                  'pudiendo añadir alguna nueva: sus valores se conservan intactos al Guardar.'),
+            ('p', 'El modal reúne descripción, valor objetivo, propuesta de mejora, memoria, fecha '
+                  'de inclusión y actuaciones vinculadas. En cada actuación, asigna responsables '
+                  'con **+ Añadir responsable** o crea uno con **+ Nuevo responsable**. Si el '
+                  'indicador está «No iniciada», las actuaciones existentes se ocultan pero se '
+                  'conservan al Guardar; también puedes añadir otras.'),
             ('p', 'El botón **Eliminar** de la ficha pide confirmación y borra el indicador; no se '
                   'puede deshacer. Los cambios de cualquier edición se guardan solos: hay un '
                   'auto-guardado cada 3 minutos y la app avisa al cerrar sesión si queda algo sin '
@@ -366,6 +367,12 @@ ADMIN = {
             ('p', 'Conviene que exista más de un Admin: si el único olvida la contraseña, nadie '
                   'puede entrar a gestionar. El botón **Guardar** de la cabecera fuerza el guardado '
                   'en ese instante; el estado del último guardado se ve al lado.'),
+            ('p', 'En el acordeón **Gestión de Responsables** puedes renombrar o eliminar cualquier '
+                  'responsable conocido. El cambio se propaga a todas las actuaciones que lo usan; '
+                  'si lo eliminas, esas actuaciones quedan sin ese responsable y, si no tienen '
+                  'otros, aparecen como «Sin asignar». Para añadir uno, '
+                  'usa **+ Nuevo responsable** desde el formulario de edición o de alta de un '
+                  'indicador.'),
         ]},
         {'title': 'Bloqueos y cursos', 'blocks': [
             ('p', 'El panel **Bloqueo de edición** congela total o parcialmente la edición del '
